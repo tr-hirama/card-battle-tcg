@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>カードバトル（オリジナルTCG）</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- メニュー -->
+  <div id="menu" class="menu">
+    <h1>⚔️ カードバトル</h1>
+    <p class="subtitle">ポケモンカード風のオリジナルTCG・AI対戦</p>
+    <div class="menu-row">
+      <label>使うデッキ：</label>
+      <select id="deck-select">
+        <option value="fire">🔥 炎デッキ</option>
+        <option value="water">💧 水雷デッキ</option>
+      </select>
+    </div>
+    <button id="start-btn" class="btn primary big">対戦開始</button>
+    <details class="rules">
+      <summary>かんたんルール</summary>
+      <ul>
+        <li>先攻・後攻はランダム。先攻の最初のターンはドロー・ワザ・サポート不可。</li>
+        <li>毎ターン：1ドロー → ベンチ展開・進化・エネ1枚・トレーナー・にげる → ワザ（ワザを使うとターン終了）。</li>
+        <li>相手をきぜつさせるとサイドを1枚取る。サイド6枚を取りきれば勝ち。</li>
+        <li>弱点は2倍、抵抗力は-30。特殊状態：どく/やけど/ねむり/マヒ/こんらん。</li>
+      </ul>
+    </details>
+  </div>
+
+  <!-- ゲーム画面 -->
+  <div id="game" class="game" style="display:none">
+    <div id="board" class="board-wrap"></div>
+    <aside class="log-wrap">
+      <h3>ログ</h3>
+      <div id="log" class="log"></div>
+    </aside>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
