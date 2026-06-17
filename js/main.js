@@ -116,7 +116,7 @@ class Controller {
       ctx.actionsHtml = this.handActionsHtml(this.sel.hand);
       return ctx;
     }
-    ctx.actionsHtml = `<span class="hint">手札やバトルポケモンをクリックして操作（エネルギーはポケモンにドラッグでつけられます）</span>`;
+    ctx.actionsHtml = `<span class="hint">手札やバトルポケモンをクリックして操作（エネルギー・進化はポケモンにドラッグ）</span>`;
     return ctx;
   }
 
@@ -193,6 +193,7 @@ class Controller {
     u.on('a-attack', (d) => this.onAttack(+d.idx));
     u.on('a-retreat', () => this.enterRetreatTarget());
     u.on('energy-drop', (d) => this.onEnergyDrop(d.i, d.uid));
+    u.on('evolve-drop', (d) => this.onEvolveDrop(d.i, d.uid));
     u.on('a-ability', () => {
       const res = this.game.useAbility(this.pokeMenu);
       if (!res.ok) { this.flash = res.error; this.render(); return; }
@@ -223,6 +224,16 @@ class Controller {
     const g = this.game;
     if (g.turnPlayer !== HUMAN || g.phase !== 'main') { this.flash = '今は操作できません'; this.render(); return; }
     const res = g.attachEnergy(handIndex, uid);
+    if (!res.ok) { this.flash = res.error; this.render(); return; }
+    this.sel.hand = null; this.pokeMenu = null; this.targetMode = null;
+    this.render();
+  }
+
+  // 進化カードをドラッグ&ドロップで対象に進化
+  onEvolveDrop(handIndex, uid) {
+    const g = this.game;
+    if (g.turnPlayer !== HUMAN || g.phase !== 'main') { this.flash = '今は操作できません'; this.render(); return; }
+    const res = g.evolve(handIndex, uid);
     if (!res.ok) { this.flash = res.error; this.render(); return; }
     this.sel.hand = null; this.pokeMenu = null; this.targetMode = null;
     this.render();

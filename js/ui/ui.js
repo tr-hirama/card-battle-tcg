@@ -32,11 +32,11 @@ export class UI {
       if (h) h(el.dataset, e);
     });
 
-    // ---- エネルギーのドラッグ&ドロップ（手札→自分のポケモン）----
+    // ---- ドラッグ&ドロップ（手札→自分のポケモン）: エネルギー付け / 進化 ----
     root.addEventListener('dragstart', (e) => {
-      const el = e.target.closest('[data-act="hand"][data-energy="1"]');
+      const el = e.target.closest('[data-act="hand"][data-drag]');
       if (!el) { e.preventDefault(); return; }
-      e.dataTransfer.setData('text/plain', el.dataset.i);
+      e.dataTransfer.setData('text/plain', JSON.stringify({ kind: el.dataset.drag, i: el.dataset.i }));
       e.dataTransfer.effectAllowed = 'move';
       el.classList.add('dragging');
     });
@@ -56,9 +56,11 @@ export class UI {
       const tgt = e.target.closest('.poke[data-side="0"]');
       if (!tgt) return;
       e.preventDefault(); tgt.classList.remove('drop-hover');
-      const raw = e.dataTransfer.getData('text/plain');
-      const h = this.handlers['energy-drop'];
-      if (h && raw !== '') h({ i: parseInt(raw, 10), uid: tgt.dataset.uid });
+      let payload; try { payload = JSON.parse(e.dataTransfer.getData('text/plain')); } catch { return; }
+      if (!payload) return;
+      const arg = { i: parseInt(payload.i, 10), uid: tgt.dataset.uid };
+      const h = this.handlers[payload.kind === 'evolve' ? 'evolve-drop' : 'energy-drop'];
+      if (h) h(arg);
     });
   }
 
@@ -165,8 +167,10 @@ export class UI {
         : (c.trainerType === 'Supporter' ? '🧑' : c.trainerType === 'Stadium' ? '🏟' : c.trainerType === 'Tool' ? '🔧' : '🎒');
       const artStyle = img ? `background-image:url('${img}')` : `background:linear-gradient(160deg, ${color}, rgba(0,0,0,.35))`;
       const artInner = img ? '' : `<span class="hc-ico">${ico}</span>`;
-      const drag = c.category === 'Energy' ? 'draggable="true" data-energy="1"' : '';
-      return `<div class="hand-card ${sel} ${c.category === 'Energy' ? 'draggable-energy' : ''}" data-act="hand" data-i="${i}" ${drag} style="border-top:4px solid ${color}">
+      const dragKind = c.category === 'Energy' ? 'energy'
+        : (c.category === 'Pokemon' && c.stage !== 'Basic') ? 'evolve' : '';
+      const drag = dragKind ? `draggable="true" data-drag="${dragKind}"` : '';
+      return `<div class="hand-card ${sel} ${dragKind ? 'draggable-card' : ''}" data-act="hand" data-i="${i}" ${drag} style="border-top:4px solid ${color}">
         ${badge}
         <div class="hc-art" style="${artStyle}">${artInner}</div>
         <div class="hc-name">${c.name}</div>

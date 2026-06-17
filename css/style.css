@@ -147,7 +147,7 @@ select {
 }
 .hand-card:hover { transform: translateY(-4px); }
 .hand-card.sel { outline: 2px solid var(--primary); transform: translateY(-6px); }
-.hand-card.draggable-energy { cursor: grab; }
+.hand-card.draggable-card { cursor: grab; }
 .hand-card.dragging { opacity: .5; }
 .poke.drop-hover { outline: 3px dashed var(--gold); outline-offset: 2px; background: rgba(255,207,77,.12); }
 /* アートは全カード同じ枠（画像 or タイプ色＋アイコン）で高さ統一 */
