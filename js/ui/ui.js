@@ -223,6 +223,7 @@ export class UI {
         <div class="picker-list">
           ${items.length ? items.map((it, i) => `
             <div class="picker-card" data-i="${i}" title="クリックで拡大して確認">
+              <span class="pc-zoom-hint">🔍</span>
               ${it.imageUrl ? `<div class="pc-art" style="background-image:url('${it.imageUrl}')"></div>` : '<div class="pc-art noimg">🂠</div>'}
               <div class="pc-name">${it.label}</div>
               ${it.sublabel ? `<div class="pc-sub">${it.sublabel}</div>` : ''}
@@ -341,6 +342,7 @@ export class UI {
         <div class="picker-list">
           ${items.length ? items.map((it, i) => `
             <div class="picker-card view" data-i="${i}" title="クリックで拡大">
+              <span class="pc-zoom-hint">🔍</span>
               <div class="pc-art${it.imageUrl ? '' : ' noimg'}" ${it.imageUrl ? `style="background-image:url('${it.imageUrl}')"` : ''}>${it.imageUrl ? '' : it.ico}</div>
               <div class="pc-name">${it.label}</div>
               <div class="pc-sub">${it.sublabel}</div>

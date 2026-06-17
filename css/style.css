@@ -225,6 +225,13 @@ select {
 .picker-card:hover { transform: translateY(-2px); }
 .picker-card.sel { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(255,207,77,.4); }
 .picker-card { cursor: zoom-in; }
+.picker-card .pc-zoom-hint {
+  position: absolute; top: 4px; right: 4px; z-index: 2;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: rgba(0,0,0,.6); color: #fff; font-size: .82rem;
+  display: flex; align-items: center; justify-content: center; pointer-events: none;
+}
+.picker-card:hover .pc-zoom-hint { background: var(--primary); }
 .picker-card .pc-check {
   position: absolute; top: 4px; left: 4px; z-index: 2; display: none;
   width: 22px; height: 22px; border-radius: 50%; background: var(--gold); color: #000;
