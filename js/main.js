@@ -218,7 +218,7 @@ class Controller {
       return;
     }
     if (g.turnPlayer !== HUMAN || g.phase !== 'main') return;
-    if (this.targetMode) return;
+    if (this._busy()) return;   // 対話中は新しい手札操作を受け付けない
     this.pokeMenu = null;
     this.sel.hand = (this.sel.hand === i) ? null : i;
     this.render();
@@ -228,6 +228,7 @@ class Controller {
   onEnergyDrop(handIndex, uid) {
     const g = this.game;
     if (g.turnPlayer !== HUMAN || g.phase !== 'main') { this.flash = '今は操作できません'; this.render(); return; }
+    if (this._busy()) return;
     this.attachEnergyAt(handIndex, uid);
   }
 
@@ -264,6 +265,7 @@ class Controller {
   onBenchDrop(handIndex) {
     const g = this.game;
     if (g.turnPlayer !== HUMAN || g.phase !== 'main') { this.flash = '今は操作できません'; this.render(); return; }
+    if (this._busy()) return;
     const res = g.playBasicToBench(handIndex);
     if (!res.ok) { this.flash = res.error; this.render(); return; }
     this.sel.hand = null; this.pokeMenu = null; this.targetMode = null;
@@ -274,6 +276,7 @@ class Controller {
   onEvolveDrop(handIndex, uid) {
     const g = this.game;
     if (g.turnPlayer !== HUMAN || g.phase !== 'main') { this.flash = '今は操作できません'; this.render(); return; }
+    if (this._busy()) return;
     const res = g.evolve(handIndex, uid);
     if (!res.ok) { this.flash = res.error; this.render(); return; }
     this.sel.hand = null; this.pokeMenu = null; this.targetMode = null;
@@ -283,6 +286,7 @@ class Controller {
   // ワザ使用（対象選択が要るワザは相手ポケモンを選んでから解決）
   onAttack(idx) {
     const g = this.game, p = g.players[HUMAN];
+    if (this._busy()) return;
     const atk = p.active && p.active.card.attacks[idx];
     if (!atk) return;
     if (g.attackNeedsTarget(atk)) {
@@ -311,6 +315,9 @@ class Controller {
       this.render();
     }
   }
+
+  // 対話中（カード選択モーダル表示中、または対象選択待ち）か
+  _busy() { return !!(this.ui._picker || this.targetMode); }
 
   // ---- 各アクション ----
   act(res, mayEndTurn = false) {
@@ -363,6 +370,7 @@ class Controller {
   }
 
   onTrainer() {
+    if (this._busy()) return;   // 対話中（別カードの選択待ち）は新たに使えない
     const g = this.game, p = g.players[HUMAN], i = this.sel.hand;
     const c = getCard(p.hand[i]);
     // 名前ベースで実装済みの実カードトレーナー
