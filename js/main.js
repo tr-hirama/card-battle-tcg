@@ -409,12 +409,12 @@ class Controller {
   }
   deckItems(filter) {
     const p = this.game.players[HUMAN]; const out = [];
-    p.deck.forEach(id => { const c = getCard(id); if (filter(c)) out.push({ key: id, label: c.name, sublabel: this._sub(c), imageUrl: c.imageUrl }); });
+    p.deck.forEach(id => { const c = getCard(id); if (filter(c)) out.push({ key: id, label: c.name, sublabel: this._sub(c), imageUrl: c.imageUrl, cardId: id }); });
     return out;
   }
   discardItems(filter) {
     const p = this.game.players[HUMAN]; const out = [];
-    p.discard.forEach((id, idx) => { const c = getCard(id); if (filter(c)) out.push({ key: idx, label: c.name, sublabel: this._sub(c), imageUrl: c.imageUrl }); });
+    p.discard.forEach((id, idx) => { const c = getCard(id); if (filter(c)) out.push({ key: idx, label: c.name, sublabel: this._sub(c), imageUrl: c.imageUrl, cardId: id }); });
     return out;
   }
   finishTrainer() { this.sel.hand = null; this.targetMode = null; this.pokeMenu = null; this.render(); }
@@ -483,7 +483,7 @@ class Controller {
       }
       case 'ビワ': {
         const items = opp.hand.map((id, idx) => ({ id, idx })).filter(x => { const c = getCard(x.id); return c.category === 'Trainer' && c.trainerType === 'Item'; })
-          .map(x => ({ key: x.idx, label: getCard(x.id).name, sublabel: 'グッズ', imageUrl: getCard(x.id).imageUrl }));
+          .map(x => ({ key: x.idx, label: getCard(x.id).name, sublabel: 'グッズ', imageUrl: getCard(x.id).imageUrl, cardId: x.id }));
         this.ui.showPicker({ title: 'ビワ：相手の手札のグッズを2枚までトラッシュ', items, min: 0, max: 2, optional: true },
           (keys) => { if (keys.length) g.opponentDiscardFromHand(keys); consume(); }, () => this.finishTrainer());
         break;
@@ -509,7 +509,7 @@ class Controller {
           const inst = g._findInPlay(p, uid);
           const s2s = stage2InHand.filter(s2 => matches(inst, s2));
           this.targetMode = null;
-          this.ui.showPicker({ title: 'のせる2進化ポケモンを選ぶ', items: s2s.map(id => ({ key: id, label: getCard(id).name, sublabel: '2進化', imageUrl: getCard(id).imageUrl })), min: 1, max: 1 },
+          this.ui.showPicker({ title: 'のせる2進化ポケモンを選ぶ', items: s2s.map(id => ({ key: id, label: getCard(id).name, sublabel: '2進化', imageUrl: getCard(id).imageUrl, cardId: id })), min: 1, max: 1 },
             (keys) => { g.rareCandyEvolve(keys[0], uid); consume(); }, () => this.finishTrainer());
         } };
         this.render(); break;

@@ -223,6 +223,7 @@ export class UI {
         <div class="picker-list">
           ${items.length ? items.map((it, i) => `
             <div class="picker-card" data-i="${i}">
+              ${it.cardId ? `<button class="pc-zoom" data-zoom="1" title="拡大して確認">🔍</button>` : ''}
               ${it.imageUrl ? `<div class="pc-art" style="background-image:url('${it.imageUrl}')"></div>` : '<div class="pc-art noimg">🂠</div>'}
               <div class="pc-name">${it.label}</div>
               ${it.sublabel ? `<div class="pc-sub">${it.sublabel}</div>` : ''}
@@ -244,8 +245,9 @@ export class UI {
       okBtn.classList.toggle('disabled', !(ok && sel.size <= max));
     };
     ov.querySelectorAll('.picker-card').forEach(el => {
-      el.addEventListener('click', () => {
+      el.addEventListener('click', (e) => {
         const i = +el.dataset.i;
+        if (e.target.closest('[data-zoom]')) { this.showCardZoom(items[i].cardId); return; }  // 🔍は拡大のみ
         if (sel.has(i)) { sel.delete(i); el.classList.remove('sel'); }
         else { if (sel.size >= max) return; sel.add(i); el.classList.add('sel'); }
         refresh();
@@ -261,6 +263,38 @@ export class UI {
   }
   closePicker() { if (this._picker) { this._picker.remove(); this._picker = null; } }
 
+  // カード拡大表示（内容確認用）。画像があれば大きく、無ければテキスト詳細。
+  showCardZoom(cardId) {
+    let c; try { c = getCard(cardId); } catch { return; }
+    const img = cardImage(c);
+    const ov = document.createElement('div');
+    ov.className = 'zoom-overlay';
+    ov.innerHTML = img
+      ? `<img class="zoom-img" src="${img}" alt="${c.name}">`
+      : `<div class="zoom-text">${this._cardDetailHtml(c)}</div>`;
+    document.body.appendChild(ov);
+    ov.addEventListener('click', () => ov.remove());
+  }
+
+  _cardDetailHtml(c) {
+    const line = (l, v) => v ? `<div class="zd-row"><span class="zd-k">${l}</span><span>${v}</span></div>` : '';
+    let html = `<h3 class="zd-name">${c.name}</h3>`;
+    if (c.category === 'Pokemon') {
+      html += line('タイプ', c.type) + line('HP', c.hp) + line('進化', c.stage + (c.evolvesFrom ? `（${(() => { try { return getCard(c.evolvesFrom).name; } catch { return c.evolvesFrom; } })()}から）` : ''));
+      if (c.ability) html += `<div class="zd-sec">特性「${c.ability.name}」</div><div class="zd-txt">${c.ability.text || ''}</div>`;
+      (c.attacks || []).forEach(a => {
+        const cost = Object.entries(a.cost || {}).map(([t, n]) => `${t}×${n}`).join(' ') || '—';
+        html += `<div class="zd-sec">${a.name} <span class="zd-dmg">${a.damage || ''}</span></div><div class="zd-txt">コスト: ${cost}${a.effectText ? '<br>' + a.effectText : ''}</div>`;
+      });
+      html += line('弱点', c.weakness ? `${c.weakness.type}×${c.weakness.mult || 2}` : '') + line('抵抗力', c.resistance ? `${c.resistance.type}-${c.resistance.minus || 30}` : '') + line('にげる', (c.retreat || 0));
+    } else if (c.category === 'Energy') {
+      html += line('種類', c.basic ? '基本エネルギー' : '特殊エネルギー') + line('タイプ', c.energyType);
+    } else {
+      html += line('種類', c.trainerType || 'トレーナーズ') + (c.text ? `<div class="zd-txt">${c.text}</div>` : '');
+    }
+    return html;
+  }
+
   // カードid → 表示用アイテム（画像はアンロック時のみ）
   _cardItem(id) {
     const c = getCard(id);
@@ -270,7 +304,7 @@ export class UI {
     const sub = c.category === 'Pokemon' ? `${c.stage} HP${c.hp}`
       : c.category === 'Energy' ? (c.basic ? '基本エネ' : 'エネ')
       : (c.trainerType === 'Supporter' ? 'サポート' : c.trainerType === 'Stadium' ? 'スタジアム' : c.trainerType === 'Tool' ? 'どうぐ' : 'グッズ');
-    return { label: c.name, sublabel: sub, imageUrl: cardImage(c), ico };
+    return { label: c.name, sublabel: sub, imageUrl: cardImage(c), ico, cardId: id };
   }
 
   // 読み取り専用ビューア（トラッシュ確認など）
@@ -283,8 +317,8 @@ export class UI {
       <div class="picker">
         <div class="picker-head">${title}<span class="picker-count">（${items.length}枚）</span></div>
         <div class="picker-list">
-          ${items.length ? items.map(it => `
-            <div class="picker-card view">
+          ${items.length ? items.map((it, i) => `
+            <div class="picker-card view" data-i="${i}" title="クリックで拡大">
               <div class="pc-art${it.imageUrl ? '' : ' noimg'}" ${it.imageUrl ? `style="background-image:url('${it.imageUrl}')"` : ''}>${it.imageUrl ? '' : it.ico}</div>
               <div class="pc-name">${it.label}</div>
               <div class="pc-sub">${it.sublabel}</div>
@@ -296,6 +330,9 @@ export class UI {
     this._picker = ov;
     ov.querySelector('.close-v').addEventListener('click', () => this.closePicker());
     ov.addEventListener('click', (e) => { if (e.target === ov) this.closePicker(); });
+    ov.querySelectorAll('.picker-card').forEach(el => {
+      el.addEventListener('click', () => { const it = items[+el.dataset.i]; if (it && it.cardId) this.showCardZoom(it.cardId); });
+    });
   }
 
   // ログ描画（別要素）

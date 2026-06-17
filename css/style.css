@@ -220,12 +220,35 @@ select {
 .picker-empty { color: var(--muted); padding: 20px; text-align: center; grid-column: 1/-1; }
 .picker-card {
   background: var(--panel2); border: 2px solid var(--line); border-radius: 8px;
-  padding: 6px; cursor: pointer; transition: .12s; text-align: center;
+  padding: 6px; cursor: pointer; transition: .12s; text-align: center; position: relative;
 }
 .picker-card:hover { transform: translateY(-2px); }
 .picker-card.sel { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(255,207,77,.4); }
-.picker-card.view { cursor: default; }
-.picker-card.view:hover { transform: none; }
+.picker-card.view { cursor: zoom-in; }
+.pc-zoom {
+  position: absolute; top: 4px; right: 4px; z-index: 2;
+  width: 24px; height: 24px; border-radius: 50%; border: none; cursor: zoom-in;
+  background: rgba(0,0,0,.55); color: #fff; font-size: .8rem; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.pc-zoom:hover { background: rgba(0,0,0,.8); }
+
+/* カード拡大オーバーレイ */
+.zoom-overlay {
+  position: fixed; inset: 0; z-index: 200; cursor: zoom-out;
+  background: rgba(0,0,0,.82); display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.zoom-img { max-width: 92vw; max-height: 92vh; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
+.zoom-text {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  padding: 18px 22px; max-width: 420px; max-height: 88vh; overflow-y: auto; color: var(--text);
+}
+.zd-name { margin: 0 0 10px; font-size: 1.2rem; }
+.zd-row { display: flex; gap: 10px; padding: 2px 0; font-size: .9rem; }
+.zd-k { color: var(--muted); min-width: 56px; }
+.zd-sec { margin-top: 10px; font-weight: 700; color: var(--gold); }
+.zd-dmg { float: right; color: var(--danger); }
+.zd-txt { font-size: .85rem; color: var(--text); margin-top: 2px; }
 .pc-art { width: 100%; height: 110px; border-radius: 6px; background-size: cover; background-position: center; }
 .pc-art.noimg { display: flex; align-items: center; justify-content: center; font-size: 2rem; color: var(--muted); }
 .pc-name { font-size: .8rem; font-weight: 600; margin-top: 4px; }
