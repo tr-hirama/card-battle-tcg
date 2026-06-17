@@ -327,6 +327,121 @@ export class Game {
     return { ok: true };
   }
 
+  // ============================================================
+  //  実カードのトレーナーズ用プリミティブ（効果ごとの状態変更）
+  //  検証→ピック（UI/コントローラ側）→ここで状態変更→consumeTrainerById
+  // ============================================================
+  canPlayTrainer(card) {
+    const err = this._checkMain(); if (err) return { ok: false, error: err };
+    if (card.trainerType === 'Supporter') {
+      if (this.supporterPlayed) return { ok: false, error: 'サポートはこのターンもう使いました' };
+      if (this.turnCount === 1 && this.turnPlayer === this.firstPlayer)
+        return { ok: false, error: '先攻1ターン目はサポートを使えません' };
+    }
+    return { ok: true };
+  }
+  consumeTrainerById(id) {
+    const p = this.cur(); const i = p.hand.indexOf(id);
+    if (i < 0) return { ok: false, error: 'カードがありません' };
+    const c = getCard(id);
+    p.hand.splice(i, 1); p.discard.push(id);
+    if (c.trainerType === 'Supporter') this.supporterPlayed = true;
+    this.emit(`${p.name} は ${c.name} を使った。`);
+    return { ok: true };
+  }
+  _shuffleDeck(pi) {
+    const a = this.players[pi].deck;
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(this.rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  }
+
+  // ボスの指令：相手のベンチをバトル場に
+  gustOpponent(benchIndex) {
+    const opp = this.opp(); const t = opp.bench[benchIndex];
+    if (!t) return { ok: false, error: '対象がいません' };
+    const old = opp.active; if (old) old.status.clear();
+    opp.active = t; opp.bench.splice(benchIndex, 1); if (old) opp.bench.push(old);
+    this.emit(`${this.cur().name} は ${opp.name} の ${opp.active.card.name} をバトル場に引きずり出した。`);
+    return { ok: true };
+  }
+  // 改造ハンマー：相手の特殊エネを1個トラッシュ
+  discardSpecialEnergy(targetUid) {
+    const opp = this.opp(); const t = this._findInPlay(opp, targetUid);
+    if (!t) return { ok: false, error: '対象がいません' };
+    const i = t.energy.findIndex(eid => getCard(eid).special);
+    if (i < 0) return { ok: false, error: '特殊エネルギーがついていません' };
+    opp.discard.push(t.energy.splice(i, 1)[0]);
+    this.emit(`${this.cur().name} は ${t.card.name} の特殊エネルギーをトラッシュした。`);
+    return { ok: true };
+  }
+  // 山札から手札へ（id配列）
+  searchDeckToHand(ids) {
+    const p = this.cur();
+    for (const id of ids) { const i = p.deck.indexOf(id); if (i >= 0) p.hand.push(p.deck.splice(i, 1)[0]); }
+    this._shuffleDeck(this.turnPlayer);
+    this.emit(`${p.name} は山札から${ids.length}枚を手札に加えた。`);
+    return { ok: true };
+  }
+  // 山札からベンチへ（id配列）
+  searchDeckToBench(ids) {
+    const p = this.cur(); let added = 0;
+    for (const id of ids) {
+      if (p.bench.length >= BENCH_MAX) break;
+      const i = p.deck.indexOf(id);
+      if (i >= 0) { const inst = new PokemonInPlay(p.deck.splice(i, 1)[0]); inst.placedTurn = this.turnCount; p.bench.push(inst); added++; }
+    }
+    this._shuffleDeck(this.turnPlayer);
+    this.emit(`${p.name} は山札から${added}匹をベンチに出した。`);
+    return { ok: true };
+  }
+  // トラッシュ→手札 / 山札（discardのindex配列）
+  moveDiscardToHand(indexes) {
+    const p = this.cur(); const taken = [];
+    [...indexes].sort((a, b) => b - a).forEach(i => { if (p.discard[i] != null) taken.push(p.discard.splice(i, 1)[0]); });
+    p.hand.push(...taken);
+    this.emit(`${p.name} はトラッシュから${taken.length}枚を手札に加えた。`);
+    return { ok: true };
+  }
+  moveDiscardToDeck(indexes) {
+    const p = this.cur(); const taken = [];
+    [...indexes].sort((a, b) => b - a).forEach(i => { if (p.discard[i] != null) taken.push(p.discard.splice(i, 1)[0]); });
+    p.deck.push(...taken); this._shuffleDeck(this.turnPlayer);
+    this.emit(`${p.name} はトラッシュから${taken.length}枚を山札にもどした。`);
+    return { ok: true };
+  }
+  // ワンダーパッチ：トラッシュの基本エネをベンチにつける
+  attachEnergyFromDiscard(discardIndex, targetUid) {
+    const p = this.cur(); const id = p.discard[discardIndex]; const c = id && getCard(id);
+    if (!c || c.category !== 'Energy') return { ok: false, error: 'エネルギーを選んでください' };
+    const t = this._findInPlay(p, targetUid); if (!t) return { ok: false, error: '対象がいません' };
+    p.discard.splice(discardIndex, 1); t.energy.push(id);
+    this.emit(`${p.name} はトラッシュの ${c.name} を ${t.card.name} につけた。`);
+    return { ok: true };
+  }
+  // ビワ：相手の手札からグッズをトラッシュ
+  opponentDiscardFromHand(indexes) {
+    const opp = this.opp(); let n = 0;
+    [...indexes].sort((a, b) => b - a).forEach(i => { if (opp.hand[i] != null) { opp.discard.push(opp.hand.splice(i, 1)[0]); n++; } });
+    this.emit(`${this.cur().name} は ${opp.name} の手札から${n}枚のグッズをトラッシュした。`);
+    return { ok: true };
+  }
+  // ふしぎなアメ：たね→2進化（1進化をとばす）
+  rareCandyEvolve(stage2Id, targetUid) {
+    const err = this._checkMain(); if (err) return { ok: false, error: err };
+    const p = this.cur(); const c = getCard(stage2Id);
+    if (!c || c.category !== 'Pokemon' || c.stage !== 'Stage2') return { ok: false, error: '2進化ポケモンを選んでください' };
+    const target = this._findInPlay(p, targetUid);
+    if (!target) return { ok: false, error: '対象がいません' };
+    const stage1 = c.evolvesFrom ? getCard(c.evolvesFrom) : null;
+    if (target.card.stage !== 'Basic' || !stage1 || stage1.evolvesFrom !== target.cardId)
+      return { ok: false, error: 'そのたねからは進化できません' };
+    if (target.placedTurn === this.turnCount) return { ok: false, error: 'このターンに出したポケモンには使えません' };
+    const hi = p.hand.indexOf(stage2Id); if (hi >= 0) p.hand.splice(hi, 1);
+    target.stack.push(stage2Id); target.cardId = stage2Id; target.evolvedTurn = this.turnCount;
+    target.status.clear();
+    this.emit(`${p.name} は ふしぎなアメ で ${target.card.name} に進化させた。`);
+    return { ok: true };
+  }
+
   // 手動の入れ替え（トレーナー「いれかえ」用）
   forceSwitch(playerIndex, benchIndex) {
     const p = this.players[playerIndex];

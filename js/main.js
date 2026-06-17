@@ -11,6 +11,13 @@ import { checkUnlocked } from './auth.js';
 const HUMAN = 0;
 const AI_IDX = 1;
 
+// 効果を実装済みの実カードトレーナーズ（名前ベース・版番号に依存しない）
+const NAMED_TRAINERS = {
+  'ボスの指令': 1, '改造ハンマー': 1, 'なかよしポフィン': 1, 'ポケパッド': 1,
+  'せいなるはい': 1, 'スイレンのお世話': 1, '夜のタンカ': 1, 'トウコ': 1,
+  'ヒカリ': 1, 'ビワ': 1, 'ワンダーパッチ': 1, 'ふしぎなアメ': 1,
+};
+
 class Controller {
   constructor() {
     this.boardEl = document.getElementById('board');
@@ -255,6 +262,13 @@ class Controller {
   onTrainer() {
     const g = this.game, p = g.players[HUMAN], i = this.sel.hand;
     const c = getCard(p.hand[i]);
+    // 名前ベースで実装済みの実カードトレーナー
+    if (NAMED_TRAINERS[c.name]) {
+      const v = g.canPlayTrainer(c);
+      if (!v.ok) { this.flash = v.error; this.render(); return; }
+      this.runNamedTrainer(c);
+      return;
+    }
     const res = g.playTrainer(i);
     if (res.ok) { this.act(res); return; }
     if (res.needTarget === 'ownPokemon') {
@@ -273,6 +287,122 @@ class Controller {
     } else {
       this.flash = res.error || '使えません';
       this.render();
+    }
+  }
+
+  // ---- 実カードのトレーナーズ効果（オーケストレーション） ----
+  _sub(c) {
+    if (c.category === 'Pokemon') return `${c.stage} HP${c.hp}`;
+    if (c.category === 'Energy') return c.basic ? '基本エネ' : '特殊エネ';
+    return c.trainerType || 'トレーナー';
+  }
+  deckItems(filter) {
+    const p = this.game.players[HUMAN]; const out = [];
+    p.deck.forEach(id => { const c = getCard(id); if (filter(c)) out.push({ key: id, label: c.name, sublabel: this._sub(c), imageUrl: c.imageUrl }); });
+    return out;
+  }
+  discardItems(filter) {
+    const p = this.game.players[HUMAN]; const out = [];
+    p.discard.forEach((id, idx) => { const c = getCard(id); if (filter(c)) out.push({ key: idx, label: c.name, sublabel: this._sub(c), imageUrl: c.imageUrl }); });
+    return out;
+  }
+  finishTrainer() { this.sel.hand = null; this.targetMode = null; this.pokeMenu = null; this.render(); }
+
+  runNamedTrainer(card) {
+    const g = this.game, p = g.players[HUMAN], opp = g.players[1];
+    const consume = () => { g.consumeTrainerById(card.id); this.finishTrainer(); };
+    const isPoke = c => c.category === 'Pokemon';
+    const isBasicEnergy = c => c.category === 'Energy' && c.basic;
+
+    switch (card.name) {
+      case 'ボスの指令': {
+        if (opp.bench.length === 0) { this.flash = '相手のベンチにポケモンがいません'; this.render(); return; }
+        this.targetMode = { uids: new Set(opp.bench.map(b => b.uid)), prompt: '相手のベンチから1匹選んでバトル場に', pick: (uid) => { g.gustOpponent(opp.bench.findIndex(b => b.uid === uid)); consume(); } };
+        this.render(); break;
+      }
+      case '改造ハンマー': {
+        const targets = g.allInPlay(opp).filter(x => x.energy.some(eid => getCard(eid).special));
+        if (!targets.length) { this.flash = '相手に特殊エネルギーがついたポケモンがいません'; this.render(); return; }
+        this.targetMode = { uids: new Set(targets.map(t => t.uid)), prompt: '特殊エネをトラッシュする相手ポケモンを選ぶ', pick: (uid) => { g.discardSpecialEnergy(uid); consume(); } };
+        this.render(); break;
+      }
+      case 'なかよしポフィン': {
+        const space = 5 - p.bench.length;
+        if (space <= 0) { this.flash = 'ベンチがいっぱいです'; this.render(); return; }
+        this.ui.showPicker({ title: 'なかよしポフィン：HP70以下のたねを2枚までベンチに', items: this.deckItems(c => isPoke(c) && c.stage === 'Basic' && c.hp <= 70), min: 0, max: Math.min(2, space), optional: true },
+          (keys) => { if (keys.length) g.searchDeckToBench(keys); consume(); }, () => this.finishTrainer());
+        break;
+      }
+      case 'ポケパッド': {
+        this.ui.showPicker({ title: 'ポケパッド：ポケモンを1枚手札に', items: this.deckItems(isPoke), min: 1, max: 1 },
+          (keys) => { g.searchDeckToHand(keys); consume(); }, () => this.finishTrainer());
+        break;
+      }
+      case 'せいなるはい': {
+        this.ui.showPicker({ title: 'せいなるはい：トラッシュのポケモンを5枚まで山札へ', items: this.discardItems(isPoke), min: 0, max: 5, optional: true },
+          (keys) => { if (keys.length) g.moveDiscardToDeck(keys); consume(); }, () => this.finishTrainer());
+        break;
+      }
+      case 'スイレンのお世話': {
+        this.ui.showPicker({ title: 'スイレンのお世話：トラッシュのポケモン/基本エネを3枚まで手札に', items: this.discardItems(c => isPoke(c) || isBasicEnergy(c)), min: 0, max: 3, optional: true },
+          (keys) => { if (keys.length) g.moveDiscardToHand(keys); consume(); }, () => this.finishTrainer());
+        break;
+      }
+      case '夜のタンカ': {
+        this.ui.showPicker({ title: '夜のタンカ：トラッシュのポケモン/基本エネを1枚手札に', items: this.discardItems(c => isPoke(c) || isBasicEnergy(c)), min: 1, max: 1 },
+          (keys) => { g.moveDiscardToHand(keys); consume(); }, () => this.finishTrainer());
+        break;
+      }
+      case 'トウコ': {
+        this.ui.showPicker({ title: 'トウコ①：進化ポケモンを1枚', items: this.deckItems(c => isPoke(c) && c.stage !== 'Basic'), min: 0, max: 1, optional: true },
+          (k1) => {
+            this.ui.showPicker({ title: 'トウコ②：エネルギーを1枚', items: this.deckItems(c => c.category === 'Energy'), min: 0, max: 1, optional: true },
+              (k2) => { const ids = [...k1, ...k2]; if (ids.length) g.searchDeckToHand(ids); consume(); }, () => this.finishTrainer());
+          }, () => this.finishTrainer());
+        break;
+      }
+      case 'ヒカリ': {
+        this.ui.showPicker({ title: 'ヒカリ①：たねポケモンを1枚', items: this.deckItems(c => isPoke(c) && c.stage === 'Basic'), min: 0, max: 1, optional: true },
+          (k1) => this.ui.showPicker({ title: 'ヒカリ②：1進化ポケモンを1枚', items: this.deckItems(c => isPoke(c) && c.stage === 'Stage1'), min: 0, max: 1, optional: true },
+            (k2) => this.ui.showPicker({ title: 'ヒカリ③：2進化ポケモンを1枚', items: this.deckItems(c => isPoke(c) && c.stage === 'Stage2'), min: 0, max: 1, optional: true },
+              (k3) => { const ids = [...k1, ...k2, ...k3]; if (ids.length) g.searchDeckToHand(ids); consume(); }, () => this.finishTrainer()),
+            () => this.finishTrainer()),
+          () => this.finishTrainer());
+        break;
+      }
+      case 'ビワ': {
+        const items = opp.hand.map((id, idx) => ({ id, idx })).filter(x => { const c = getCard(x.id); return c.category === 'Trainer' && c.trainerType === 'Item'; })
+          .map(x => ({ key: x.idx, label: getCard(x.id).name, sublabel: 'グッズ', imageUrl: getCard(x.id).imageUrl }));
+        this.ui.showPicker({ title: 'ビワ：相手の手札のグッズを2枚までトラッシュ', items, min: 0, max: 2, optional: true },
+          (keys) => { if (keys.length) g.opponentDiscardFromHand(keys); consume(); }, () => this.finishTrainer());
+        break;
+      }
+      case 'ワンダーパッチ': {
+        const items = this.discardItems(isBasicEnergy);
+        if (!items.length) { this.flash = 'トラッシュに基本エネルギーがありません'; this.render(); return; }
+        if (p.bench.length === 0) { this.flash = 'ベンチにポケモンがいません'; this.render(); return; }
+        this.ui.showPicker({ title: 'ワンダーパッチ：トラッシュの基本エネを選ぶ', items, min: 1, max: 1 }, (keys) => {
+          const di = keys[0];
+          this.targetMode = { uids: new Set(p.bench.map(b => b.uid)), prompt: 'エネルギーをつけるベンチポケモンを選ぶ', pick: (uid) => { g.attachEnergyFromDiscard(di, uid); consume(); } };
+          this.render();
+        }, () => this.finishTrainer());
+        break;
+      }
+      case 'ふしぎなアメ': {
+        const stage2InHand = p.hand.filter(id => { const c = getCard(id); return c.category === 'Pokemon' && c.stage === 'Stage2'; });
+        const matches = (inst, s2id) => { const s1 = getCard(s2id).evolvesFrom ? getCard(getCard(s2id).evolvesFrom) : null; return s1 && s1.evolvesFrom === inst.cardId; };
+        const candidates = g.allInPlay(p).filter(inst => inst.card.stage === 'Basic' && inst.placedTurn !== g.turnCount && stage2InHand.some(s2 => matches(inst, s2)));
+        if (!candidates.length) { this.flash = '対象がいません（対応する2進化が手札に必要）'; this.render(); return; }
+        this.targetMode = { uids: new Set(candidates.map(x => x.uid)), prompt: 'ふしぎなアメで進化させるたねを選ぶ', pick: (uid) => {
+          const inst = g._findInPlay(p, uid);
+          const s2s = stage2InHand.filter(s2 => matches(inst, s2));
+          this.targetMode = null;
+          this.ui.showPicker({ title: 'のせる2進化ポケモンを選ぶ', items: s2s.map(id => ({ key: id, label: getCard(id).name, sublabel: '2進化', imageUrl: getCard(id).imageUrl })), min: 1, max: 1 },
+            (keys) => { g.rareCandyEvolve(keys[0], uid); consume(); }, () => this.finishTrainer());
+        } };
+        this.render(); break;
+      }
+      default: { this.flash = 'このカードは未対応です'; this.render(); }
     }
   }
 

@@ -115,8 +115,16 @@ foreach ($e in $entries) {
       $retreat = ([regex]::Matches($tm.Groups[3].Value,'icon-none icon')).Count
     }
 
-    # 進化元（ev_on の直後の evolution ev_off の名前）
-    $evm = [regex]::Match($ph, '(?s)class="evolution ev_on">.*?<div class="evolution ev_off"><a[^>]*>([^<]+)</a>')
+    # 進化元：チェーンは上(最進化)→下(たね)順、現カードは ev_on。
+    #  現カードが lineage の evolution ev_on なら、その直後の evolution ev_off が進化元。
+    #  最上段は in-box ev_on になり lineage に evolution ev_on が無いので、最初の evolution ev_off を採用。
+    $onM = [regex]::Match($ph, 'class="evolution ev_on"')
+    if ($onM.Success) {
+      $after = $ph.Substring($onM.Index)
+      $evm = [regex]::Match($after, '<div class="evolution ev_off"><a[^>]*>([^<]+)</a>')
+    } else {
+      $evm = [regex]::Match($ph, '<div class="evolution ev_off"><a[^>]*>([^<]+)</a>')
+    }
     if ($evm.Success) { $evoNameOf[$num] = (Clean $evm.Groups[1].Value) }
 
     $card = [ordered]@{ id="$num"; number="$num"; name=$name; category='Pokemon'; type=$type; hp=$hp; stage=$stage; retreat=$retreat; attacks=$attacks; imageUrl=$img }

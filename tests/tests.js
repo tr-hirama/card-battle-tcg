@@ -173,6 +173,54 @@ test('buildAutoDeck：手持ち番号から60枚', () => {
 });
 
 // ============================================================
+//  トレーナーズ効果のプリミティブ
+// ============================================================
+test('ボスの指令：相手ベンチを引きずり出す', () => {
+  const g = new Game(DECKS.fire, DECKS.water, { rng: rngFrom(11) });
+  g.players[0].setupDone = true; g.players[1].setupDone = true; g.turnPlayer = 0;
+  g.players[1].active = new PokemonInPlay('aqualet');
+  g.players[1].bench = [new PokemonInPlay('voltik')];
+  g.gustOpponent(0);
+  eq(g.players[1].active.cardId, 'voltik', 'ベンチが前へ');
+  eq(g.players[1].bench[0].cardId, 'aqualet', '元バトルがベンチへ');
+});
+
+test('改造ハンマー：相手の特殊エネのみトラッシュ', () => {
+  registerLocalCards({ 'sp-x': { id: 'sp-x', name: '特殊E', category: 'Energy', energyType: 'Psychic', special: true } });
+  const g = new Game(DECKS.fire, DECKS.water, { rng: rngFrom(12) });
+  g.turnPlayer = 0;
+  const t = new PokemonInPlay('aqualet'); t.energy = ['energy-water', 'sp-x'];
+  g.players[1].active = t;
+  assert(g.discardSpecialEnergy(t.uid).ok, 'ok');
+  eq(t.energy.length, 1, '1個に'); eq(t.energy[0], 'energy-water', '基本エネは残る');
+});
+
+test('ふしぎなアメ：たね→2進化（1進化スキップ）', () => {
+  registerLocalCards({
+    'tb':  { id: 'tb',  name: 'TB',  category: 'Pokemon', type: 'Psychic', hp: 50,  stage: 'Basic',  retreat: 1, attacks: [] },
+    'ts1': { id: 'ts1', name: 'TS1', category: 'Pokemon', type: 'Psychic', hp: 80,  stage: 'Stage1', evolvesFrom: 'tb',  retreat: 1, attacks: [] },
+    'ts2': { id: 'ts2', name: 'TS2', category: 'Pokemon', type: 'Psychic', hp: 140, stage: 'Stage2', evolvesFrom: 'ts1', retreat: 1, attacks: [] },
+  });
+  const g = new Game(DECKS.fire, DECKS.water, { rng: rngFrom(13) });
+  g.turnPlayer = 0; g.turnCount = 2; g.phase = 'main';
+  const inst = new PokemonInPlay('tb'); inst.placedTurn = 1;
+  g.players[0].active = inst; g.players[0].hand = ['ts2'];
+  const r = g.rareCandyEvolve('ts2', inst.uid);
+  assert(r.ok, r.error || 'ok'); eq(inst.cardId, 'ts2', '2進化に'); eq(g.players[0].hand.length, 0, '手札消費');
+});
+
+test('searchDeckToBench / moveDiscardToHand', () => {
+  const g = new Game(DECKS.fire, DECKS.water, { rng: rngFrom(14) });
+  g.turnPlayer = 0;
+  g.players[0].deck = ['embor', 'energy-fire']; g.players[0].bench = [];
+  g.searchDeckToBench(['embor']);
+  eq(g.players[0].bench.length, 1, 'ベンチに出る'); eq(g.players[0].bench[0].cardId, 'embor');
+  g.players[0].discard = ['potion', 'aqualet']; g.players[0].hand = [];
+  g.moveDiscardToHand([1]);
+  eq(g.players[0].hand[0], 'aqualet', 'トラッシュ→手札'); eq(g.players[0].discard.length, 1);
+});
+
+// ============================================================
 //  実行
 // ============================================================
 async function run() {

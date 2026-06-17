@@ -148,6 +148,61 @@ export class UI {
     </div>`;
   }
 
+  // ============================================================
+  //  汎用カード選択モーダル（山札・トラッシュ・手札から選ぶ）
+  //  opts: { title, items:[{key,label,sublabel,imageUrl}], min, max, optional, confirmLabel }
+  //  onConfirm(selectedKeys[]) / onCancel()
+  // ============================================================
+  showPicker(opts, onConfirm, onCancel) {
+    this.closePicker();
+    const { title = '選択', items = [], min = 0, max = 1, optional = false, confirmLabel = '決定' } = opts;
+    const sel = new Set();
+    const ov = document.createElement('div');
+    ov.className = 'picker-overlay';
+    ov.innerHTML = `
+      <div class="picker">
+        <div class="picker-head">${title}<span class="picker-count"></span></div>
+        <div class="picker-list">
+          ${items.length ? items.map((it, i) => `
+            <div class="picker-card" data-i="${i}">
+              ${it.imageUrl ? `<div class="pc-art" style="background-image:url('${it.imageUrl}')"></div>` : '<div class="pc-art noimg">🂠</div>'}
+              <div class="pc-name">${it.label}</div>
+              ${it.sublabel ? `<div class="pc-sub">${it.sublabel}</div>` : ''}
+            </div>`).join('') : '<div class="picker-empty">対象がありません</div>'}
+        </div>
+        <div class="picker-actions">
+          <button class="btn cancel-btn">${optional ? 'なし／やめる' : 'やめる'}</button>
+          <button class="btn primary ok-btn">${confirmLabel}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    this._picker = ov;
+
+    const countEl = ov.querySelector('.picker-count');
+    const okBtn = ov.querySelector('.ok-btn');
+    const refresh = () => {
+      countEl.textContent = max > 1 ? `（${sel.size} / 最大${max}）` : '';
+      const ok = optional ? true : sel.size >= Math.max(1, min);
+      okBtn.classList.toggle('disabled', !(ok && sel.size <= max));
+    };
+    ov.querySelectorAll('.picker-card').forEach(el => {
+      el.addEventListener('click', () => {
+        const i = +el.dataset.i;
+        if (sel.has(i)) { sel.delete(i); el.classList.remove('sel'); }
+        else { if (sel.size >= max) return; sel.add(i); el.classList.add('sel'); }
+        refresh();
+      });
+    });
+    ov.querySelector('.ok-btn').addEventListener('click', () => {
+      if (okBtn.classList.contains('disabled')) return;
+      const keys = [...sel].map(i => items[i].key);
+      this.closePicker(); onConfirm(keys);
+    });
+    ov.querySelector('.cancel-btn').addEventListener('click', () => { this.closePicker(); if (onCancel) onCancel(); });
+    refresh();
+  }
+  closePicker() { if (this._picker) { this._picker.remove(); this._picker = null; } }
+
   // ログ描画（別要素）
   renderLog(logEl, log) {
     logEl.innerHTML = log.slice(-200).map(l => `<div class="log-line">${l}</div>`).join('');
