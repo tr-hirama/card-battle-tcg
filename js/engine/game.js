@@ -243,9 +243,13 @@ export class Game {
     return { ok: true };
   }
 
+  // お互いの最初の番（先攻=turnCount1 / 後攻=turnCount2）は進化できない
+  isFirstTurnForCurrent() { return this.turnCount <= 2; }
+
   // 進化：手札の進化カード handIndex を 場のポケモン targetUid に進化
   evolve(handIndex, targetUid) {
     const err = this._checkMain(); if (err) return { ok: false, error: err };
+    if (this.isFirstTurnForCurrent()) return { ok: false, error: 'おたがいの最初の番は進化できません' };
     const p = this.cur();
     const id = p.hand[handIndex];
     const c = id && getCard(id);
@@ -436,6 +440,7 @@ export class Game {
   // ふしぎなアメ：たね→2進化（1進化をとばす）
   rareCandyEvolve(stage2Id, targetUid) {
     const err = this._checkMain(); if (err) return { ok: false, error: err };
+    if (this.isFirstTurnForCurrent()) return { ok: false, error: 'おたがいの最初の番は進化できません' };
     const p = this.cur(); const c = getCard(stage2Id);
     if (!c || c.category !== 'Pokemon' || c.stage !== 'Stage2') return { ok: false, error: '2進化ポケモンを選んでください' };
     const target = this._findInPlay(p, targetUid);

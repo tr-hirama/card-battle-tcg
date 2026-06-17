@@ -202,7 +202,7 @@ test('ふしぎなアメ：たね→2進化（1進化スキップ）', () => {
     'ts2': { id: 'ts2', name: 'TS2', category: 'Pokemon', type: 'Psychic', hp: 140, stage: 'Stage2', evolvesFrom: 'ts1', retreat: 1, attacks: [] },
   });
   const g = new Game(DECKS.fire, DECKS.water, { rng: rngFrom(13) });
-  g.turnPlayer = 0; g.turnCount = 2; g.phase = 'main';
+  g.turnPlayer = 0; g.turnCount = 3; g.phase = 'main';
   const inst = new PokemonInPlay('tb'); inst.placedTurn = 1;
   g.players[0].active = inst; g.players[0].hand = ['ts2'];
   const r = g.rareCandyEvolve('ts2', inst.uid);
@@ -258,6 +258,16 @@ test('バトルコロシアム：相手効果のベンチダメージを防ぐ',
   g.placeBenchDamage(0, c, 20, 0); eq(c.damage, 20, '自分の効果は通る');
 });
 
+test('お互いの最初の番(turnCount1/2)は進化できない', () => {
+  const g = new Game(DECKS.fire, DECKS.water, { rng: rngFrom(81) });
+  g.turnPlayer = 0; g.phase = 'main';
+  const inst = new PokemonInPlay('embor'); inst.placedTurn = 0; g.players[0].active = inst;
+  g.players[0].hand = ['pyrax', 'pyrax', 'pyrax'];   // embor→pyrax
+  g.turnCount = 1; eq(g.evolve(0, inst.uid).ok, false, '先攻1ターン目は不可');
+  g.turnCount = 2; eq(g.evolve(0, inst.uid).ok, false, '後攻1ターン目は不可');
+  g.turnCount = 3; assert(g.evolve(0, inst.uid).ok, '2巡目以降は進化できる');
+});
+
 // ============================================================
 //  特性
 // ============================================================
@@ -267,7 +277,7 @@ test('特性サイコドロー：進化時に引く', () => {
     'ab-s1':   { id: 'ab-s1',   name: 'AB1', category: 'Pokemon', type: 'Psychic', hp: 80, stage: 'Stage1', evolvesFrom: 'ab-base', retreat: 1, attacks: [], ability: { name: 'サイコドロー', text: '自分の山札を2枚引く。' } },
   });
   const g = new Game(DECKS.fire, DECKS.water, { rng: rngFrom(31) });
-  g.turnPlayer = 0; g.turnCount = 2; g.phase = 'main';
+  g.turnPlayer = 0; g.turnCount = 3; g.phase = 'main';
   const inst = new PokemonInPlay('ab-base'); inst.placedTurn = 1; g.players[0].active = inst;
   g.players[0].hand = ['ab-s1']; g.players[0].deck = ['energy-fire', 'energy-fire', 'energy-fire'];
   const before = g.players[0].deck.length;

@@ -129,8 +129,9 @@ class Controller {
       const full = p.bench.length >= 5;
       btns += `<button data-act="a-bench" class="btn ${full ? 'disabled' : 'primary'}">ベンチに出す</button>`;
     } else if (c.category === 'Pokemon') {
-      const can = g.allInPlay(p).some(x => x.cardId === c.evolvesFrom && x.placedTurn !== g.turnCount && x.evolvedTurn !== g.turnCount);
+      const can = !g.isFirstTurnForCurrent() && g.allInPlay(p).some(x => x.cardId === c.evolvesFrom && x.placedTurn !== g.turnCount && x.evolvedTurn !== g.turnCount);
       btns += `<button data-act="a-evolve" class="btn ${can ? 'primary' : 'disabled'}">進化させる</button>`;
+      if (g.isFirstTurnForCurrent()) btns += `<span class="hint">最初の番は進化できません</span>`;
     } else if (c.category === 'Energy') {
       btns += `<button data-act="a-attach" class="btn ${g.energyAttached ? 'disabled' : 'primary'}">ポケモンにつける</button>`;
     } else if (c.category === 'Trainer' && c.trainerType === 'Stadium') {
@@ -274,6 +275,7 @@ class Controller {
 
   enterEvolveTarget() {
     const g = this.game, p = g.players[HUMAN], i = this.sel.hand;
+    if (g.isFirstTurnForCurrent()) { this.flash = 'おたがいの最初の番は進化できません'; this.render(); return; }
     const c = getCard(p.hand[i]);
     const uids = new Set(g.allInPlay(p)
       .filter(x => x.cardId === c.evolvesFrom && x.placedTurn !== g.turnCount && x.evolvedTurn !== g.turnCount)
@@ -438,6 +440,7 @@ class Controller {
         break;
       }
       case 'ふしぎなアメ': {
+        if (g.isFirstTurnForCurrent()) { this.flash = 'おたがいの最初の番は進化できません'; this.render(); return; }
         const stage2InHand = p.hand.filter(id => { const c = getCard(id); return c.category === 'Pokemon' && c.stage === 'Stage2'; });
         const matches = (inst, s2id) => { const s1 = getCard(s2id).evolvesFrom ? getCard(getCard(s2id).evolvesFrom) : null; return s1 && s1.evolvesFrom === inst.cardId; };
         const candidates = g.allInPlay(p).filter(inst => inst.card.stage === 'Basic' && inst.placedTurn !== g.turnCount && stage2InHand.some(s2 => matches(inst, s2)));
