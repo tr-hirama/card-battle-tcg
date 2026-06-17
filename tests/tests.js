@@ -331,6 +331,45 @@ test('AI：ボスの指令で弱ったベンチを引きずり出す', () => {
 });
 
 // ============================================================
+//  実効ダメージ / AI戦術
+// ============================================================
+test('estimateDamage：弱点×2・抵抗-30', () => {
+  const g = new Game(DECKS.fire, DECKS.water, { rng: rngFrom(51) });
+  const embor = new PokemonInPlay('embor');     // Fire
+  const sprout = new PokemonInPlay('sprout');   // Grass・弱点Fire×2
+  eq(g.estimateDamage(embor, getCard('embor').attacks[1], sprout), 60, '弱点2倍(30→60)');
+  const mindle = new PokemonInPlay('mindle');   // Psychic
+  const voltik = new PokemonInPlay('voltik');   // 抵抗Psychic-30
+  eq(g.estimateDamage(mindle, getCard('mindle').attacks[0], voltik), 0, '抵抗で0(30-30)');
+});
+
+test('AI：弱点でKOできる相手ベンチをボスで引きずり出す', () => {
+  registerLocalCards({ 'ai-boss2': { id: 'ai-boss2', name: 'ボスの指令', category: 'Trainer', trainerType: 'Supporter', effect: { kind: 'unimplemented' } } });
+  const g = new Game(DECKS.fire, DECKS.water, { rng: rngFrom(52) });
+  g.players[0].setupDone = true; g.players[1].setupDone = true;
+  g.turnPlayer = 0; g.turnCount = 2; g.phase = 'main';
+  const embor = new PokemonInPlay('embor'); embor.energy = ['energy-fire', 'energy-fire']; g.players[0].active = embor; // ひのこ30
+  g.players[0].hand = ['ai-boss2'];
+  g.players[1].active = new PokemonInPlay('aqualet');     // 弱点炎ではない→KO不可
+  g.players[1].bench = [new PokemonInPlay('sprout')];     // HP60・弱点炎→実効60でKO可
+  new AI(g, 0)._useSupporter();
+  eq(g.players[1].active.cardId, 'sprout', '弱点KOできるベンチを引きずり出す');
+});
+
+test('ハンドパワー：手札枚数×2のダメカン（弱点無視）', () => {
+  registerLocalCards({ 'hp-foo': { id: 'hp-foo', name: 'TF', category: 'Pokemon', type: 'Psychic', hp: 140, stage: 'Basic', retreat: 1,
+    attacks: [{ name: 'ハンドパワー', cost: { Psychic: 1 }, damage: 0, effectText: '自分の手札の枚数×2個ぶんのダメカンを、相手のバトルポケモンにのせる。' }] } });
+  const g = new Game(DECKS.fire, DECKS.water, { rng: rngFrom(61) });
+  g.turnPlayer = 0; g.turnCount = 2; g.phase = 'main';
+  const f = new PokemonInPlay('hp-foo'); f.energy = ['energy-psychic']; g.players[0].active = f;
+  g.players[0].hand = ['energy-fire', 'energy-fire', 'energy-fire']; // 3枚
+  g.players[1].active = new PokemonInPlay('tidalon');                // HP120
+  eq(g.estimateDamage(f, f.card.attacks[0], g.players[1].active), 60, '3×2×10=60');
+  g.useAttack(0);
+  eq(g.players[1].active.damage, 60, '60ダメージ計上');
+});
+
+// ============================================================
 //  実行
 // ============================================================
 async function run() {

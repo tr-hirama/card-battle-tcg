@@ -5,7 +5,7 @@
 // ============================================================
 
 import { getCard } from '../data/cards.js';
-import { applyAttackEffect, applyTrainerEffect } from './effects.js';
+import { applyAttackEffect, applyTrainerEffect, parseHandCounters } from './effects.js';
 
 let _uid = 1;
 const nextUid = () => 'p' + (_uid++);
@@ -577,6 +577,24 @@ export class Game {
     }
     return pool >= needColorless;
   }
+
+  // 実効ダメージの見積り（弱点×・抵抗-・ついてるエネ依存加算を考慮。コインは保守的に無視）
+  // AIの判断用。defenderを省略すると素のダメージ。
+  estimateDamage(attacker, attack, defender) {
+    let dmg = attack.damage || 0;
+    const eff = attack.effect || {};
+    if (eff.plusPerEnergy) dmg += attacker.energyCount(eff.plusPerEnergy.type) * eff.plusPerEnergy.damage;
+    if (defender && dmg > 0) {
+      const card = defender.card;
+      if (card.weakness && card.weakness.type === attacker.card.type) dmg *= (card.weakness.mult || 2);
+      if (card.resistance && card.resistance.type === attacker.card.type) dmg = Math.max(0, dmg - (card.resistance.minus || 30));
+    }
+    // 手札枚数ぶんのダメカン（弱点無視）
+    const hc = parseHandCounters(attack);
+    if (hc) { const owner = this._ownerOf(attacker) || this.cur(); dmg += owner.hand.length * hc * 10; }
+    return dmg;
+  }
+  _ownerOf(inst) { return this.players.find(p => p.active === inst || p.bench.includes(inst)) || null; }
 
   // ワザを使う（attackIndex）
   useAttack(attackIndex) {

@@ -6,6 +6,13 @@
 
 import { getCard } from '../data/cards.js';
 
+// 「自分の手札の枚数×N個ぶんのダメカンをのせる」系の係数N（machine effect か effectText から）
+export function parseHandCounters(attack) {
+  if (attack && attack.handCounters) return attack.handCounters;
+  const m = (attack && attack.effectText || '').match(/手札の枚数×(\d+)個ぶんのダメカン/);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
 // ---- ワザの効果 ----
 // game, attackerPlayer, defenderPlayer, attackerInst, attack
 export function applyAttackEffect(game, atkPlayer, defPlayer, inst, attack) {
@@ -28,6 +35,14 @@ export function applyAttackEffect(game, atkPlayer, defPlayer, inst, attack) {
 
   // 本体ダメージ（弱点/抵抗込み）
   if (damage > 0) game.dealDamageToActive(inst, defPlayer, damage, type);
+
+  // 手札枚数ぶんのダメカン（弱点・抵抗は無視）
+  const hc = parseHandCounters(attack);
+  if (hc && defPlayer.active) {
+    const counters = atkPlayer.hand.length * hc;
+    defPlayer.active.damage += counters * 10;
+    game.emit(`手札${atkPlayer.hand.length}枚ぶん：ダメカン${counters}個（${counters * 10}ダメージ）。`);
+  }
 
   // 状態異常付与（直接 or コインオモテ時）
   const applyStatus = (s) => {

@@ -54,11 +54,18 @@ export class AI {
   }
 
   _promoteBest() {
-    const p = this.player();
+    const g = this.game, p = this.player();
     if (p.bench.length === 0) return;
-    let best = 0, bestHp = -1;
-    p.bench.forEach((b, i) => { if (b.currentHp > bestHp) { bestHp = b.currentHp; best = i; } });
-    this.game.promote(this.me, best);
+    const oppActive = this.opp().active;
+    // 評価: 今すぐ殴れる＞与えられる実効ダメージ＞HP
+    const score = (b) => {
+      const atk = this._bestAttack(b);
+      const dmg = atk ? this._maxEffective(b, oppActive) : 0;
+      return (atk ? 100000 : 0) + dmg * 100 + b.currentHp;
+    };
+    let best = 0, bestScore = -1;
+    p.bench.forEach((b, i) => { const s = score(b); if (s > bestScore) { bestScore = s; best = i; } });
+    g.promote(this.me, best);
   }
 
   _evolveAll() {
@@ -85,8 +92,9 @@ export class AI {
       if (ab.name === 'さかてにとる' && g.canUseAbility(inst).ok) g.useAbility(inst.uid);
       if (ab.name === 'にげあしドロー' && g.canUseAbility(inst).ok) {
         const onBench = p.bench.some(b => b.uid === inst.uid);
-        // 手札が細く、ベンチに余裕があるとき、ベンチのものだけ使う（アクティブは温存）
-        if (onBench && p.active && p.bench.length >= 2 && p.hand.length <= 4) g.useAbility(inst.uid);
+        // 乱用は自滅（山札・盤面・エネを失う）。手札が尽きかけ＆山札に余裕＆エネ未装着のベンチのみ。
+        if (onBench && inst.energy.length === 0 && p.active && p.bench.length >= 2 && p.hand.length <= 2 && p.deck.length > 8)
+          g.useAbility(inst.uid);
       }
     }
   }
@@ -170,16 +178,20 @@ export class AI {
     if (g.supporterPlayed) return;
     if (g.turnCount === 1 && g.turnPlayer === g.firstPlayer) return;
 
-    // 1) ボスの指令：相手ベンチに、自分のアクティブで倒せそうな的がいれば引きずり出す
+    // 1) ボスの指令：自分のアクティブでKOできる相手ベンチを引きずり出す（弱点込みの実効ダメージで判定）
     const boss = this._idByName('ボスの指令');
-    if (boss) {
-      const dmg = this._activeBestDamage();
+    if (boss && p.active) {
       const opp = this.opp();
-      const idx = opp.bench.findIndex(b => b.currentHp <= dmg && dmg > 0);
-      if (idx >= 0) { g.gustOpponent(idx); g.consumeTrainerById(boss); return; }
+      let pick = -1, pickHp = Infinity;
+      opp.bench.forEach((b, i) => {
+        const eff = this._maxEffective(p.active, b);
+        if (eff > 0 && eff >= b.currentHp && b.currentHp < pickHp) { pick = i; pickHp = b.currentHp; }
+      });
+      if (pick >= 0) { g.gustOpponent(pick); g.consumeTrainerById(boss); return; }
     }
-    // 2) ドロー/サーチ系サポート
-    const hikari = this._idByName('ヒカリ');
+    // 2) ドロー/サーチ系サポート（手札が十分なら山札温存のため使わない）
+    const wantResources = p.hand.length <= 5;
+    const hikari = wantResources && this._idByName('ヒカリ');
     if (hikari) {
       const ids = [];
       const pick = (f) => { const d = p.deck.find(x => f(this._card(x)) && !ids.includes(x)); if (d) ids.push(d); };
@@ -188,7 +200,7 @@ export class AI {
       pick(c => c && c.category === 'Pokemon' && c.stage === 'Stage2');
       if (ids.length) { g.searchDeckToHand(ids); g.consumeTrainerById(hikari); return; }
     }
-    const touko = this._idByName('トウコ');
+    const touko = wantResources && this._idByName('トウコ');
     if (touko) {
       const ids = [];
       const evo = p.deck.find(x => { const c = this._card(x); return c && c.category === 'Pokemon' && c.stage !== 'Basic'; });
@@ -227,16 +239,32 @@ export class AI {
   _attachEnergy() {
     const g = this.game, p = this.player();
     if (g.energyAttached || !p.active) return;
-    const ei = p.hand.findIndex(id => { const c = this._card(id); return c && c.category === 'Energy'; });
-    if (ei < 0) return;
-    g.attachEnergy(ei, p.active.uid);
+    const energyIdx = p.hand.map((id, i) => ({ id, i })).filter(x => { const c = this._card(x.id); return c && c.category === 'Energy'; });
+    if (!energyIdx.length) return;
+
+    // 候補（アクティブ優先、次にベンチ）について、付けると「新たにワザが撃てるようになる」組合せを探す
+    const targets = [p.active, ...p.bench].filter(Boolean);
+    const enables = (target, eid) => {
+      target.energy.push(eid);
+      const ok = (target.card.attacks || []).some(a => g.canUseAttack(target, a));
+      target.energy.pop();
+      return ok;
+    };
+    for (const target of targets) {
+      const alreadyAttacks = (target.card.attacks || []).some(a => g.canUseAttack(target, a));
+      if (alreadyAttacks) continue;            // 既に撃てるなら回さない
+      for (const e of energyIdx) {
+        if (enables(target, e.id)) { g.attachEnergy(e.i, target.uid); return; }
+      }
+    }
+    // 撃てる相手を増やせないなら、アクティブの必要タイプを優先して育てる
+    const need = new Set();
+    (p.active.card.attacks || []).forEach(a => Object.keys(a.cost || {}).forEach(t => { if (t !== 'Colorless') need.add(t); }));
+    let pick = energyIdx.find(e => need.has(this._card(e.id).energyType)) || energyIdx[0];
+    g.attachEnergy(pick.i, p.active.uid);
   }
 
-  _activeBestDamage() {
-    const b = this._bestAttack(this.player().active);
-    return b ? (b.atk.damage || 0) : 0;
-  }
-
+  // 使えるワザのうち素ダメージ最大（同一ポケモンの中での選択）
   _bestAttack(inst) {
     const g = this.game;
     if (!inst || !inst.card.attacks) return null;
@@ -248,23 +276,56 @@ export class AI {
     });
     return best;
   }
+  // defender に対する実効ダメージ最大（弱点/抵抗込み）
+  _bestAttackVs(inst, defender) {
+    const g = this.game;
+    if (!inst || !inst.card.attacks) return null;
+    let best = null, bestEff = -1;
+    inst.card.attacks.forEach((atk, idx) => {
+      if (!g.canUseAttack(inst, atk)) return;
+      const eff = g.estimateDamage(inst, atk, defender);
+      if (eff > bestEff) { bestEff = eff; best = { idx, atk, eff }; }
+    });
+    return best;
+  }
+  _maxEffective(inst, defender) {
+    const b = this._bestAttackVs(inst, defender);
+    return b ? b.eff : 0;
+  }
 
   _attackOrPass() {
     const g = this.game, p = this.player();
     if (!p.active) return;
     if (g.turnCount === 1 && g.turnPlayer === g.firstPlayer) return;
     if (p.active.status.has('asleep') || p.active.status.has('paralyzed')) return;
+    const oppActive = this.opp().active;
 
-    const best = this._bestAttack(p.active);
-    if (best) { g.useAttack(best.idx); return; }
+    // アクティブで殴れるなら、相手アクティブに最大実効ダメージのワザを撃つ
+    const best = this._bestAttackVs(p.active, oppActive);
+    if (best) {
+      // ベンチに「もっと有効な＝相手をKOできて、今のアクティブではKOできない」アタッカーがいて、
+      // にげるコストを払えるなら入れ替えてから殴る
+      const koNow = oppActive && best.eff >= oppActive.currentHp;
+      if (!koNow && oppActive && !g.retreatedThisTurn) {
+        const cost = p.active.card.retreat || 0;
+        if (p.active.energy.length >= cost) {
+          const better = p.bench.map((b, i) => ({ i, eff: this._maxEffective(b, oppActive) }))
+            .filter(x => x.eff >= oppActive.currentHp && x.eff > best.eff)
+            .sort((a, b) => b.eff - a.eff)[0];
+          if (better) { g.retreat(better.i); const nb = this._bestAttackVs(p.active, this.opp().active); if (nb) g.useAttack(nb.idx); return; }
+        }
+      }
+      g.useAttack(best.idx); return;
+    }
 
-    const candidate = p.bench.map((b, i) => ({ b, i, atk: this._bestAttack(b) })).filter(x => x.atk);
+    // アクティブで殴れない：殴れるベンチに入れ替える（相手への実効ダメージ最大）
+    const candidate = p.bench.map((b, i) => ({ b, i, eff: this._maxEffective(b, oppActive) })).filter(x => this._bestAttack(x.b));
     if (candidate.length && !g.retreatedThisTurn) {
       const cost = p.active.card.retreat || 0;
       if (p.active.energy.length >= cost) {
-        candidate.sort((a, b) => (b.atk.atk.damage || 0) - (a.atk.atk.damage || 0));
+        candidate.sort((a, b) => b.eff - a.eff);
         g.retreat(candidate[0].i);
-        const nb = this._bestAttack(p.active);
+        const nb = this._bestAttackVs(p.active, this.opp().active);
         if (nb) g.useAttack(nb.idx);
       }
     }
