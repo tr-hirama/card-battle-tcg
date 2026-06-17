@@ -224,21 +224,22 @@ select {
 }
 .picker-card:hover { transform: translateY(-2px); }
 .picker-card.sel { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(255,207,77,.4); }
-.picker-card.view { cursor: zoom-in; }
-.pc-zoom {
-  position: absolute; top: 4px; right: 4px; z-index: 2;
-  width: 24px; height: 24px; border-radius: 50%; border: none; cursor: zoom-in;
-  background: rgba(0,0,0,.55); color: #fff; font-size: .8rem; line-height: 1;
-  display: flex; align-items: center; justify-content: center;
+.picker-card { cursor: zoom-in; }
+.picker-card .pc-check {
+  position: absolute; top: 4px; left: 4px; z-index: 2; display: none;
+  width: 22px; height: 22px; border-radius: 50%; background: var(--gold); color: #000;
+  font-size: .8rem; font-weight: 700; align-items: center; justify-content: center;
 }
-.pc-zoom:hover { background: rgba(0,0,0,.8); }
+.picker-card.sel .pc-check { display: flex; }
 
 /* カード拡大オーバーレイ */
 .zoom-overlay {
   position: fixed; inset: 0; z-index: 200; cursor: zoom-out;
   background: rgba(0,0,0,.82); display: flex; align-items: center; justify-content: center; padding: 20px;
 }
-.zoom-img { max-width: 92vw; max-height: 92vh; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
+.zoom-box { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.zoom-actions { display: flex; gap: 10px; }
+.zoom-img { max-width: 88vw; max-height: 80vh; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,.6); }
 .zoom-text {
   background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
   padding: 18px 22px; max-width: 420px; max-height: 88vh; overflow-y: auto; color: var(--text);

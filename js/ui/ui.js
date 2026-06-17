@@ -222,11 +222,11 @@ export class UI {
         <div class="picker-head">${title}<span class="picker-count"></span></div>
         <div class="picker-list">
           ${items.length ? items.map((it, i) => `
-            <div class="picker-card" data-i="${i}">
-              ${it.cardId ? `<button class="pc-zoom" data-zoom="1" title="拡大して確認">🔍</button>` : ''}
+            <div class="picker-card" data-i="${i}" title="クリックで拡大して確認">
               ${it.imageUrl ? `<div class="pc-art" style="background-image:url('${it.imageUrl}')"></div>` : '<div class="pc-art noimg">🂠</div>'}
               <div class="pc-name">${it.label}</div>
               ${it.sublabel ? `<div class="pc-sub">${it.sublabel}</div>` : ''}
+              <span class="pc-check">✓</span>
             </div>`).join('') : '<div class="picker-empty">対象がありません</div>'}
         </div>
         <div class="picker-actions">
@@ -244,13 +244,23 @@ export class UI {
       const ok = optional ? true : sel.size >= Math.max(1, min);
       okBtn.classList.toggle('disabled', !(ok && sel.size <= max));
     };
+    const toggle = (i, el) => {
+      if (sel.has(i)) { sel.delete(i); el.classList.remove('sel'); }
+      else {
+        if (max === 1) { sel.clear(); ov.querySelectorAll('.picker-card.sel').forEach(x => x.classList.remove('sel')); }
+        else if (sel.size >= max) { return; }
+        sel.add(i); el.classList.add('sel');
+      }
+      refresh();
+    };
     ov.querySelectorAll('.picker-card').forEach(el => {
-      el.addEventListener('click', (e) => {
+      el.addEventListener('click', () => {
         const i = +el.dataset.i;
-        if (e.target.closest('[data-zoom]')) { this.showCardZoom(items[i].cardId); return; }  // 🔍は拡大のみ
-        if (sel.has(i)) { sel.delete(i); el.classList.remove('sel'); }
-        else { if (sel.size >= max) return; sel.add(i); el.classList.add('sel'); }
-        refresh();
+        // カードをクリックで拡大して内容確認 → 拡大画面の「選ぶ」で選択
+        this.showCardZoom(items[i].cardId, {
+          actionLabel: sel.has(i) ? '選択をはずす' : (max > 1 ? '選ぶ' : 'これを選ぶ'),
+          onAction: () => toggle(i, el),
+        });
       });
     });
     ov.querySelector('.ok-btn').addEventListener('click', () => {
@@ -264,16 +274,28 @@ export class UI {
   closePicker() { if (this._picker) { this._picker.remove(); this._picker = null; } }
 
   // カード拡大表示（内容確認用）。画像があれば大きく、無ければテキスト詳細。
-  showCardZoom(cardId) {
+  // opts.actionLabel/onAction を渡すと「選ぶ」ボタンを表示。
+  showCardZoom(cardId, opts = {}) {
     let c; try { c = getCard(cardId); } catch { return; }
     const img = cardImage(c);
     const ov = document.createElement('div');
     ov.className = 'zoom-overlay';
-    ov.innerHTML = img
+    const inner = img
       ? `<img class="zoom-img" src="${img}" alt="${c.name}">`
       : `<div class="zoom-text">${this._cardDetailHtml(c)}</div>`;
+    ov.innerHTML = `<div class="zoom-box">
+      ${inner}
+      <div class="zoom-actions">
+        ${opts.actionLabel ? `<button class="btn primary zoom-act">${opts.actionLabel}</button>` : ''}
+        <button class="btn zoom-close">閉じる</button>
+      </div>
+    </div>`;
     document.body.appendChild(ov);
-    ov.addEventListener('click', () => ov.remove());
+    const close = () => ov.remove();
+    ov.addEventListener('click', (e) => { if (e.target === ov) close(); });           // 背景クリックで閉じる
+    ov.querySelector('.zoom-close').addEventListener('click', close);
+    const act = ov.querySelector('.zoom-act');
+    if (act) act.addEventListener('click', () => { close(); if (opts.onAction) opts.onAction(); });
   }
 
   _cardDetailHtml(c) {
