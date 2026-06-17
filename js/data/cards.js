@@ -4,8 +4,8 @@
 //  後から自由に差し替え・追加できるよう、すべて「データ」として定義する。
 // ============================================================
 
-// タイプ（汎用エレメント）
-export const TYPES = ['Grass', 'Fire', 'Water', 'Lightning', 'Psychic', 'Fighting', 'Colorless'];
+// タイプ（公式の全エネルギータイプ）
+export const TYPES = ['Grass', 'Fire', 'Water', 'Lightning', 'Psychic', 'Fighting', 'Darkness', 'Metal', 'Dragon', 'Fairy', 'Colorless'];
 
 // タイプ別の色（UI用）
 export const TYPE_COLORS = {
@@ -15,13 +15,25 @@ export const TYPE_COLORS = {
   Lightning:'#fdd835',
   Psychic:  '#ab47bc',
   Fighting: '#8d6e63',
+  Darkness: '#455a64',
+  Metal:    '#90a4ae',
+  Dragon:   '#c9a227',
+  Fairy:    '#ec407a',
   Colorless:'#bdbdbd',
 };
 
 // タイプの絵文字（簡易アイコン）
 export const TYPE_ICONS = {
   Grass: '🌿', Fire: '🔥', Water: '💧', Lightning: '⚡',
-  Psychic: '🔮', Fighting: '👊', Colorless: '⭐',
+  Psychic: '🔮', Fighting: '👊', Darkness: '🌑', Metal: '⚙️',
+  Dragon: '🐉', Fairy: '🧚', Colorless: '⭐',
+};
+
+// pokemon-card.com の icon クラス → タイプ名
+export const PCG_ICON_TYPE = {
+  grass: 'Grass', fire: 'Fire', water: 'Water', lightning: 'Lightning',
+  psychic: 'Psychic', fighting: 'Fighting', darkness: 'Darkness',
+  metal: 'Metal', dragon: 'Dragon', fairy: 'Fairy', none: 'Colorless',
 };
 
 // ------------------------------------------------------------
@@ -160,6 +172,9 @@ export const CARDS = {
   'energy-lightning': { id: 'energy-lightning', name: '雷エネルギー',   category: 'Energy', energyType: 'Lightning', basic: true },
   'energy-psychic':   { id: 'energy-psychic',   name: '超エネルギー',   category: 'Energy', energyType: 'Psychic',   basic: true },
   'energy-fighting':  { id: 'energy-fighting',  name: '闘エネルギー',   category: 'Energy', energyType: 'Fighting',  basic: true },
+  'energy-darkness':  { id: 'energy-darkness',  name: '悪エネルギー',   category: 'Energy', energyType: 'Darkness',  basic: true },
+  'energy-metal':     { id: 'energy-metal',     name: '鋼エネルギー',   category: 'Energy', energyType: 'Metal',     basic: true },
+  'energy-fairy':     { id: 'energy-fairy',     name: '妖エネルギー',   category: 'Energy', energyType: 'Fairy',     basic: true },
 
   // ===== トレーナーズ =====
   'potion': {
@@ -235,8 +250,70 @@ export const DECKS = {
   water: { name: '水雷デッキ', list: normalizeDeck(DECK_WATER, 'energy-water') , fill: 'energy-water'},
 };
 
+// タイプ → 基本エネルギーカードid（竜は基本エネ無し→無色扱いで他エネで支払う）
+export const TYPE_ENERGY = {
+  Grass: 'energy-grass', Fire: 'energy-fire', Water: 'energy-water',
+  Lightning: 'energy-lightning', Psychic: 'energy-psychic', Fighting: 'energy-fighting',
+  Darkness: 'energy-darkness', Metal: 'energy-metal', Fairy: 'energy-fairy',
+};
+
+// 手持ちのカード番号から60枚デッキを自動構築（実カード＋基本エネ＋安全なトレーナー）
+export function buildAutoDeck(numbers, cardLookup) {
+  const get = cardLookup || getCard;
+  const list = [];
+  const energyNeed = {};   // type -> 重み
+  for (const num of numbers) {
+    let c; try { c = get(num); } catch { continue; }
+    if (c.category !== 'Pokemon') continue;
+    const copies = c.stage === 'Basic' ? 4 : c.stage === 'Stage1' ? 3 : 2;
+    for (let i = 0; i < copies; i++) list.push(num);
+    // 必要エネルギーを集計
+    for (const atk of (c.attacks || [])) {
+      for (const [t, n] of Object.entries(atk.cost || {})) {
+        if (t === 'Colorless') continue;
+        if (TYPE_ENERGY[t]) energyNeed[t] = (energyNeed[t] || 0) + n;
+      }
+    }
+    if (TYPE_ENERGY[c.type]) energyNeed[c.type] = (energyNeed[c.type] || 0) + 1;
+  }
+  // トレーナー（オリジナル＝安全）
+  const trainers = [...Array(4).fill('professor'), ...Array(4).fill('poke-ball'), ...Array(3).fill('potion'), ...Array(2).fill('switch')];
+  list.push(...trainers);
+
+  // 残りを基本エネで埋める（必要タイプの比率で配分）
+  const types = Object.keys(energyNeed);
+  const fillType = types[0] || 'Grass';
+  const remaining = Math.max(0, 60 - list.length);
+  if (types.length === 0) {
+    for (let i = 0; i < remaining; i++) list.push(TYPE_ENERGY[fillType]);
+  } else {
+    const total = types.reduce((s, t) => s + energyNeed[t], 0);
+    let added = 0;
+    types.forEach((t, idx) => {
+      const n = idx === types.length - 1 ? remaining - added : Math.round(remaining * energyNeed[t] / total);
+      for (let i = 0; i < n; i++) list.push(TYPE_ENERGY[t]);
+      added += n;
+    });
+  }
+  return { name: 'マイデッキ', list: normalizeDeck(list, TYPE_ENERGY[fillType]), fill: TYPE_ENERGY[fillType] };
+}
+
+// ------------------------------------------------------------
+//  実カード（pokemon-card.com 由来）はローカル専用ファイルから登録する。
+//  リポジトリには含めない（転載回避）。getCard はまずこの登録を見る。
+// ------------------------------------------------------------
+const LOCAL_CARDS = {};   // number(string) -> card定義
+let LOCAL_DECKS = null;   // { key: {name, list:[number...], fill} }
+
+export function registerLocalCards(byNumber = {}, decks = null) {
+  Object.assign(LOCAL_CARDS, byNumber);
+  if (decks) LOCAL_DECKS = decks;
+}
+export function getLocalDecks() { return LOCAL_DECKS; }
+export function hasLocalCards() { return Object.keys(LOCAL_CARDS).length > 0; }
+
 export function getCard(id) {
-  const c = CARDS[id];
+  const c = CARDS[id] || LOCAL_CARDS[id];
   if (!c) throw new Error('unknown card: ' + id);
   return c;
 }

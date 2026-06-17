@@ -38,6 +38,31 @@ npx serve .
 | `js/ui/ui.js` | 盤面・手札・ログの描画 |
 | `js/main.js` | 操作とゲーム進行の配線（コントローラ） |
 
+## 実カード画像（ローカル限定・任意）
+
+著作権に配慮し、公式カードの画像・データは**リポジトリに一切含めません**。
+代わりに、**自分のローカル環境でだけ**、pokemon-card.com の番号で実カード（画像・ステータス）を使える仕組みを用意しています。公開サイト（GitHub Pages）には鍵ファイルが無いため、常にオリジナルのプレースホルダーカードで動作します。
+
+### 仕組み
+1. ローカルに鍵ファイル `key.local.js` を置く（`.gitignore` 済み）:
+   ```js
+   window.__CARD_KEY = 'あなたのパスワード';
+   ```
+2. 起動時、このパスワードの SHA-256 が `js/config.js` の `IMAGE_UNLOCK_HASH` と一致した時だけ、実カードデータと公式画像が有効になります。
+   - パスワードの変更: 新しいパスワードの SHA-256 を計算して `IMAGE_UNLOCK_HASH` を差し替え。
+     ```powershell
+     $pw="新パスワード"; $s=[Security.Cryptography.SHA256]::Create()
+     (($s.ComputeHash([Text.Encoding]::UTF8.GetBytes($pw))|%{$_.ToString("x2")}) -join "")
+     ```
+3. 実カードデータを取得（番号は pokemon-card.com の `details.php/card/<番号>`）:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File tools\scrape-cards.ps1 -Numbers 50220,50221 -Out js\data\cards.local.js
+   ```
+   生成された `js/data/cards.local.js` も `.gitignore` 済みで公開されません。
+   デッキは未定義なら手持ちカードから自動構築されます（`js/data/decks.local.js` で番号指定も可）。
+
+> 画像はリンク参照のみで、ダウンロード・再配布はしません。あくまで個人のローカル利用に限定してください。
+
 ## 今後の拡張候補
 
 - 特性（現状はテキスト表示のみ）／スタジアム／ポケモンのどうぐ

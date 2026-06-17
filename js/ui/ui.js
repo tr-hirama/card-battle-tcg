@@ -9,6 +9,17 @@ import { statusLabel } from '../engine/effects.js';
 
 const STATUS_ICON = { asleep: '💤', paralyzed: '⚡', confused: '😵', poisoned: '☠️', burned: '🔥' };
 
+// ============================================================
+//  カード画像（アンロック時のみ・公式URLを参照／リポジトリには保存しない）
+//  imagesEnabled は起動時のパスワード照合で true になる。
+//  公開サイトでは常に false → 画像を一切読み込まない（転載回避）。
+// ============================================================
+let _imagesEnabled = false;
+export function setImagesEnabled(v) { _imagesEnabled = !!v; }
+function cardImage(card) {
+  return (_imagesEnabled && card.imageUrl) ? card.imageUrl : null;
+}
+
 export class UI {
   constructor(root) {
     this.root = root;
@@ -26,6 +37,7 @@ export class UI {
 
   // ctx: { selHand, targets:Set<uid>, banner, attackable:bool, viewer:0 }
   render(game, ctx = {}) {
+    this._last = { game, ctx };
     const targets = ctx.targets || new Set();
     const me = game.players[0];
     const opp = game.players[1];
@@ -74,11 +86,15 @@ export class UI {
       const e = getCard(eid);
       return `<span class="energy-dot" style="background:${TYPE_COLORS[e.energyType]}" title="${e.name}">${TYPE_ICONS[e.energyType] || ''}</span>`;
     }).join('');
+    const img = cardImage(c);
+    const head = img
+      ? `<span class="pthumb" style="background-image:url('${img}')"></span>`
+      : `<span class="ptype" style="background:${color}">${TYPE_ICONS[c.type] || ''}</span>`;
     return `<div class="poke ${isActive ? 'active' : 'bench-poke'} ${sel}"
       data-act="poke" data-uid="${inst.uid}" data-side="${side}" data-bench="${benchIndex == null ? '' : benchIndex}"
       style="border-color:${color}">
       <div class="poke-head">
-        <span class="ptype" style="background:${color}">${TYPE_ICONS[c.type] || ''}</span>
+        ${head}
         <span class="pname">${c.name}</span>
       </div>
       <div class="hp-row">
@@ -107,8 +123,11 @@ export class UI {
       const sub = c.category === 'Pokemon' ? `${c.stage} HP${c.hp}`
         : c.category === 'Energy' ? 'エネルギー'
         : c.trainerType === 'Supporter' ? 'サポート' : 'グッズ';
-      return `<div class="hand-card ${sel}" data-act="hand" data-i="${i}" style="border-top:4px solid ${color}">
+      const img = cardImage(c);
+      const art = img ? `<div class="hc-art" style="background-image:url('${img}')"></div>` : '';
+      return `<div class="hand-card ${sel} ${img ? 'has-art' : ''}" data-act="hand" data-i="${i}" style="border-top:4px solid ${color}">
         ${badge}
+        ${art}
         <div class="hc-name">${c.name}</div>
         <div class="hc-sub">${sub}</div>
       </div>`;

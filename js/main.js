@@ -4,8 +4,9 @@
 
 import { Game } from './engine/game.js';
 import { AI } from './ai/ai.js';
-import { UI } from './ui/ui.js';
-import { DECKS, getCard } from './data/cards.js';
+import { UI, setImagesEnabled } from './ui/ui.js';
+import { DECKS, getCard, registerLocalCards, buildAutoDeck } from './data/cards.js';
+import { checkUnlocked } from './auth.js';
 
 const HUMAN = 0;
 const AI_IDX = 1;
@@ -30,7 +31,8 @@ class Controller {
 
   startGame(deckHumanKey = 'fire', deckAiKey = 'water') {
     this.reset();
-    const g = new Game(DECKS[deckHumanKey], DECKS[deckAiKey]);
+    const decks = this.decks || DECKS;
+    const g = new Game(decks[deckHumanKey] || DECKS.fire, decks[deckAiKey] || DECKS.water);
     this.game = g;
     this.ai = new AI(g, AI_IDX);
     g.onChange = () => this.render();
@@ -314,13 +316,41 @@ class Controller {
   }
 }
 
+// デッキ選択肢を再構築
+function populateDeckSelect(decks) {
+  const sel = document.getElementById('deck-select');
+  sel.innerHTML = Object.entries(decks)
+    .map(([k, d]) => `<option value="${k}">${d.name}</option>`).join('');
+}
+
 // 起動
 window.addEventListener('DOMContentLoaded', () => {
   const ctrl = new Controller();
   window.__ctrl = ctrl; // デバッグ用フック
+  ctrl.decks = { ...DECKS };
+
+  // ローカル・アンロック判定（パスワード一致時のみ実カード＋画像を有効化）
+  (async () => {
+    const unlocked = await checkUnlocked();
+    if (unlocked && window.__LOCAL_CARDS && window.__LOCAL_CARDS.byNumber) {
+      registerLocalCards(window.__LOCAL_CARDS.byNumber, window.__LOCAL_DECKS || null);
+      setImagesEnabled(true);
+      if (window.__LOCAL_DECKS) {
+        ctrl.decks = { ...ctrl.decks, ...window.__LOCAL_DECKS };
+      } else {
+        const nums = Object.keys(window.__LOCAL_CARDS.byNumber);
+        if (nums.length) ctrl.decks = { ...ctrl.decks, mydeck: buildAutoDeck(nums, getCard) };
+      }
+      const badge = document.getElementById('unlock-badge');
+      if (badge) badge.style.display = 'inline';
+    }
+    populateDeckSelect(ctrl.decks);
+  })();
+
   document.getElementById('start-btn').addEventListener('click', () => {
-    const human = document.getElementById('deck-select').value;
-    const ai = human === 'fire' ? 'water' : 'fire';
+    const keys = Object.keys(ctrl.decks);
+    const human = document.getElementById('deck-select').value || keys[0];
+    const ai = (keys.find(k => k !== human)) || human;
     document.getElementById('menu').style.display = 'none';
     document.getElementById('game').style.display = 'flex';
     ctrl.startGame(human, ai);

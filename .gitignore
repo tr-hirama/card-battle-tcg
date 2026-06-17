@@ -3,3 +3,11 @@ Thumbs.db
 *.log
 node_modules/
 .vscode/
+
+# ローカル専用・公開しない（転載回避）
+key.local.js
+js/data/cards.local.js
+js/data/decks.local.js
+img/cards/
+.tmp_*
+*.tmp

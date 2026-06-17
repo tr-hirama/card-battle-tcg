@@ -10,7 +10,9 @@
   <!-- メニュー -->
   <div id="menu" class="menu">
     <h1>⚔️ カードバトル</h1>
-    <p class="subtitle">ポケモンカード風のオリジナルTCG・AI対戦</p>
+    <p class="subtitle">ポケモンカード風のオリジナルTCG・AI対戦
+      <span id="unlock-badge" class="unlock-badge" style="display:none">🔓 実カード有効</span>
+    </p>
     <div class="menu-row">
       <label>使うデッキ：</label>
       <select id="deck-select">
@@ -39,6 +41,10 @@
     </aside>
   </div>
 
+  <!-- ローカル専用（.gitignore）。存在する時だけ読み込まれる。公開サイトには無い＝転載なし。 -->
+  <script src="key.local.js" onerror="this.remove()"></script>
+  <script src="js/data/cards.local.js" onerror="this.remove()"></script>
+  <script src="js/data/decks.local.js" onerror="this.remove()"></script>
   <script type="module" src="js/main.js"></script>
 </body>
 </html>
