@@ -79,23 +79,28 @@ export class UI {
 
     this.root.innerHTML = `
       <div class="board">
-        ${this._sideStrip(opp, true)}
-        ${this._fieldRow(game, opp, 1, targets, true)}
-        <div class="midline">
-          <span class="turn-info">ターン ${game.turnCount}・${game.players[game.turnPlayer].name}の番</span>
-          ${game.stadium ? (() => {
-            const sc = getCard(game.stadium.id); const si = cardImage(sc);
-            const ic = si ? `<span class="stadium-thumb" style="background-image:url('${si}')"></span>` : '🏟';
-            return `<span class="stadium-chip">${ic} ${sc.name}<small>（${game.players[game.stadium.owner].name}）</small></span>`;
-          })() : ''}
+        <div class="play">
+          ${this._sideStrip(opp, true)}
+          ${this._fieldRow(game, opp, 1, targets, true)}
+          <div class="midline">
+            <span class="turn-info">ターン ${game.turnCount}・${game.players[game.turnPlayer].name}の番</span>
+            ${game.stadium ? (() => {
+              const sc = getCard(game.stadium.id); const si = cardImage(sc);
+              const ic = si ? `<span class="stadium-thumb" style="background-image:url('${si}')"></span>` : '🏟';
+              return `<span class="stadium-chip">${ic} ${sc.name}<small>（${game.players[game.stadium.owner].name}）</small></span>`;
+            })() : ''}
+          </div>
+          ${this._fieldRow(game, me, 0, targets, false)}
+          ${this._sideStrip(me, false)}
         </div>
-        ${this._fieldRow(game, me, 0, targets, false)}
-        ${this._sideStrip(me, false)}
         ${this._handRow(game, me, ctx)}
+        ${this._actionBar(game, ctx)}
       </div>
-      ${this._actionBar(game, ctx)}
       ${ctx.banner ? `<div class="banner">${ctx.banner}</div>` : ''}
     `;
+    // プレイ領域が縦に溢れる場合は、自分の場が見えるよう下端へ寄せる
+    const play = this.root.querySelector('.play');
+    if (play) play.scrollTop = play.scrollHeight;
   }
 
   _sideStrip(p, isOpp) {
