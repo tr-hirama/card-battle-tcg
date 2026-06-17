@@ -499,7 +499,8 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('start-btn').addEventListener('click', () => {
     const keys = Object.keys(ctrl.decks);
     const human = document.getElementById('deck-select').value || keys[0];
-    const ai = (keys.find(k => k !== human)) || human;
+    // 取り込み/マイデッキ選択時はAIも同じ実デッキでミラー戦（AIも実カード効果を使う）
+    const ai = (human === 'imported' || human === 'mydeck') ? human : ((keys.find(k => k !== human)) || human);
     document.getElementById('menu').style.display = 'none';
     document.getElementById('game').style.display = 'flex';
     ctrl.startGame(human, ai);
