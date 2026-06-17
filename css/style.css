@@ -137,23 +137,26 @@ select {
 }
 .hand-card {
   background: var(--panel2); border: 1px solid var(--line);
-  border-radius: 8px; padding: 6px 8px; min-width: 92px; cursor: pointer;
+  border-radius: 8px; padding: 5px; cursor: pointer;
   transition: .12s; position: relative; flex-shrink: 0;
+  width: 96px; height: 132px; box-sizing: border-box;
+  display: flex; flex-direction: column; overflow: hidden;
 }
 .hand-card:hover { transform: translateY(-4px); }
 .hand-card.sel { outline: 2px solid var(--primary); transform: translateY(-6px); }
 .hand-card.draggable-energy { cursor: grab; }
 .hand-card.dragging { opacity: .5; }
 .poke.drop-hover { outline: 3px dashed var(--gold); outline-offset: 2px; background: rgba(255,207,77,.12); }
-.hc-name { font-weight: 600; font-size: .82rem; }
-.hc-sub { font-size: .7rem; color: var(--muted); margin-top: 2px; }
-/* 画像があるときは絵札風に：上部にアートを表示 */
-.hand-card.has-art { min-width: 84px; padding-top: 4px; }
+/* アートは全カード同じ枠（画像 or タイプ色＋アイコン）で高さ統一 */
 .hc-art {
-  width: 100%; height: 78px; border-radius: 6px; margin-bottom: 4px;
+  width: 100%; height: 80px; border-radius: 6px; margin-bottom: 4px; flex-shrink: 0;
   background-size: cover; background-position: center;
   border: 1px solid rgba(255,255,255,.15);
+  display: flex; align-items: center; justify-content: center;
 }
+.hc-ico { font-size: 1.8rem; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
+.hc-name { font-weight: 600; font-size: .76rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hc-sub { font-size: .68rem; color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hc-badge {
   position: absolute; top: -8px; right: -4px; background: var(--muted);
   color: #000; font-size: .62rem; border-radius: 6px; padding: 1px 5px;

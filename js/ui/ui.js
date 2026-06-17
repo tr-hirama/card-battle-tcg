@@ -151,14 +151,20 @@ export class UI {
         badge = order[0] === i ? '<span class="hc-badge active">バトル場</span>' : '<span class="hc-badge">ベンチ</span>';
       }
       const sub = c.category === 'Pokemon' ? `${c.stage} HP${c.hp}`
-        : c.category === 'Energy' ? 'エネルギー'
-        : c.trainerType === 'Supporter' ? 'サポート' : 'グッズ';
+        : c.category === 'Energy' ? (c.basic ? '基本エネ' : 'エネルギー')
+        : c.trainerType === 'Supporter' ? 'サポート'
+        : c.trainerType === 'Stadium' ? 'スタジアム'
+        : c.trainerType === 'Tool' ? 'どうぐ' : 'グッズ';
       const img = cardImage(c);
-      const art = img ? `<div class="hc-art" style="background-image:url('${img}')"></div>` : '';
+      const ico = c.category === 'Pokemon' ? (TYPE_ICONS[c.type] || '⭐')
+        : c.category === 'Energy' ? (TYPE_ICONS[c.energyType] || '⭐')
+        : (c.trainerType === 'Supporter' ? '🧑' : c.trainerType === 'Stadium' ? '🏟' : c.trainerType === 'Tool' ? '🔧' : '🎒');
+      const artStyle = img ? `background-image:url('${img}')` : `background:linear-gradient(160deg, ${color}, rgba(0,0,0,.35))`;
+      const artInner = img ? '' : `<span class="hc-ico">${ico}</span>`;
       const drag = c.category === 'Energy' ? 'draggable="true" data-energy="1"' : '';
-      return `<div class="hand-card ${sel} ${img ? 'has-art' : ''} ${c.category === 'Energy' ? 'draggable-energy' : ''}" data-act="hand" data-i="${i}" ${drag} style="border-top:4px solid ${color}">
+      return `<div class="hand-card ${sel} ${c.category === 'Energy' ? 'draggable-energy' : ''}" data-act="hand" data-i="${i}" ${drag} style="border-top:4px solid ${color}">
         ${badge}
-        ${art}
+        <div class="hc-art" style="${artStyle}">${artInner}</div>
         <div class="hc-name">${c.name}</div>
         <div class="hc-sub">${sub}</div>
       </div>`;
