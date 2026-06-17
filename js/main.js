@@ -228,10 +228,36 @@ class Controller {
   onEnergyDrop(handIndex, uid) {
     const g = this.game;
     if (g.turnPlayer !== HUMAN || g.phase !== 'main') { this.flash = '今は操作できません'; this.render(); return; }
+    this.attachEnergyAt(handIndex, uid);
+  }
+
+  // エネルギーを付け、特殊エネの「つけたとき」効果を解決
+  attachEnergyAt(handIndex, uid) {
+    const g = this.game, p = g.players[HUMAN];
+    const energyId = p.hand[handIndex];
     const res = g.attachEnergy(handIndex, uid);
-    if (!res.ok) { this.flash = res.error; this.render(); return; }
+    if (!res.ok) { this.flash = res.error; this.render(); return false; }
     this.sel.hand = null; this.pokeMenu = null; this.targetMode = null;
+    this.afterAttach(energyId);
     this.render();
+    return true;
+  }
+
+  // 特殊エネルギーの「手札からつけたとき」効果
+  afterAttach(energyId) {
+    const g = this.game, p = g.players[HUMAN];
+    const c = getCard(energyId);
+    if (c.category !== 'Energy' || !c.special) return;
+    if (c.name === 'リッチエネルギー') {
+      g.effectDraw(4, c.name);
+    } else if (c.name === 'テレパス超エネルギー') {
+      const type = c.energyType;
+      const space = 5 - p.bench.length;
+      const items = this.deckItems(cc => cc.category === 'Pokemon' && cc.stage === 'Basic' && cc.type === type);
+      if (!items.length || space <= 0) return;
+      this.ui.showPicker({ title: `テレパス超エネルギー：${type}のたねを2枚までベンチに`, items, min: 0, max: Math.min(2, space), optional: true },
+        (keys) => { if (keys.length) g.searchDeckToBench(keys); this.render(); }, () => this.render());
+    }
   }
 
   // たねポケモンをベンチ領域へドラッグ&ドロップで展開
@@ -316,7 +342,7 @@ class Controller {
     if (g.energyAttached) { this.flash = 'このターンはもうつけました'; this.render(); return; }
     const uids = new Set(g.allInPlay(p).map(x => x.uid));
     if (uids.size === 0) { this.flash = '対象がいません'; this.render(); return; }
-    this.targetMode = { uids, prompt: 'エネルギーをつけるポケモンを選んでください', pick: (uid) => this.act(g.attachEnergy(i, uid)) };
+    this.targetMode = { uids, prompt: 'エネルギーをつけるポケモンを選んでください', pick: (uid) => this.attachEnergyAt(i, uid) };
     this.render();
   }
 

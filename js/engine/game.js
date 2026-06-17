@@ -386,6 +386,12 @@ export class Game {
     this.emit(`${this.cur().name} は ${t.card.name} の特殊エネルギーをトラッシュした。`);
     return { ok: true };
   }
+  // 効果でN枚引く（特殊エネのリッチ等）
+  effectDraw(n, label) {
+    const d = this._draw(this.turnPlayer, n);
+    this.emit(`${this.cur().name} は${label ? label + 'で' : ''}${d}枚引いた。`);
+    return d;
+  }
   // 山札から手札へ（id配列）
   searchDeckToHand(ids) {
     const p = this.cur();

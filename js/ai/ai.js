@@ -254,14 +254,31 @@ export class AI {
       const alreadyAttacks = (target.card.attacks || []).some(a => g.canUseAttack(target, a));
       if (alreadyAttacks) continue;            // 既に撃てるなら回さない
       for (const e of energyIdx) {
-        if (enables(target, e.id)) { g.attachEnergy(e.i, target.uid); return; }
+        if (enables(target, e.id)) { this._attach(e.i, target.uid); return; }
       }
     }
     // 撃てる相手を増やせないなら、アクティブの必要タイプを優先して育てる
     const need = new Set();
     (p.active.card.attacks || []).forEach(a => Object.keys(a.cost || {}).forEach(t => { if (t !== 'Colorless') need.add(t); }));
     let pick = energyIdx.find(e => need.has(this._card(e.id).energyType)) || energyIdx[0];
-    g.attachEnergy(pick.i, p.active.uid);
+    this._attach(pick.i, p.active.uid);
+  }
+
+  // エネルギーを付け、特殊エネの「つけたとき」効果を自動解決
+  _attach(idx, uid) {
+    const g = this.game, p = this.player();
+    const id = p.hand[idx];
+    if (!g.attachEnergy(idx, uid).ok) return false;
+    const c = this._card(id);
+    if (c && c.special && c.name === 'リッチエネルギー') g.effectDraw(4, c.name);
+    else if (c && c.special && c.name === 'テレパス超エネルギー') {
+      const space = 5 - p.bench.length;
+      if (space > 0) {
+        const picks = p.deck.filter(d => { const cc = this._card(d); return cc && cc.category === 'Pokemon' && cc.stage === 'Basic' && cc.type === c.energyType; }).slice(0, Math.min(2, space));
+        if (picks.length) g.searchDeckToBench(picks);
+      }
+    }
+    return true;
   }
 
   // 使えるワザのうち素ダメージ最大（同一ポケモンの中での選択）
