@@ -116,7 +116,7 @@ class Controller {
       ctx.actionsHtml = this.handActionsHtml(this.sel.hand);
       return ctx;
     }
-    ctx.actionsHtml = `<span class="hint">手札やバトルポケモンをクリックして操作（エネルギー・進化はポケモンにドラッグ）</span>`;
+    ctx.actionsHtml = `<span class="hint">手札やバトルポケモンをクリックして操作（エネ・進化はポケモンに、たねはベンチにドラッグ）</span>`;
     return ctx;
   }
 
@@ -194,6 +194,7 @@ class Controller {
     u.on('a-retreat', () => this.enterRetreatTarget());
     u.on('energy-drop', (d) => this.onEnergyDrop(d.i, d.uid));
     u.on('evolve-drop', (d) => this.onEvolveDrop(d.i, d.uid));
+    u.on('bench-drop', (d) => this.onBenchDrop(d.i));
     u.on('a-ability', () => {
       const res = this.game.useAbility(this.pokeMenu);
       if (!res.ok) { this.flash = res.error; this.render(); return; }
@@ -224,6 +225,16 @@ class Controller {
     const g = this.game;
     if (g.turnPlayer !== HUMAN || g.phase !== 'main') { this.flash = '今は操作できません'; this.render(); return; }
     const res = g.attachEnergy(handIndex, uid);
+    if (!res.ok) { this.flash = res.error; this.render(); return; }
+    this.sel.hand = null; this.pokeMenu = null; this.targetMode = null;
+    this.render();
+  }
+
+  // たねポケモンをベンチ領域へドラッグ&ドロップで展開
+  onBenchDrop(handIndex) {
+    const g = this.game;
+    if (g.turnPlayer !== HUMAN || g.phase !== 'main') { this.flash = '今は操作できません'; this.render(); return; }
+    const res = g.playBasicToBench(handIndex);
     if (!res.ok) { this.flash = res.error; this.render(); return; }
     this.sel.hand = null; this.pokeMenu = null; this.targetMode = null;
     this.render();

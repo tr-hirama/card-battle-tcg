@@ -150,6 +150,7 @@ select {
 .hand-card.draggable-card { cursor: grab; }
 .hand-card.dragging { opacity: .5; }
 .poke.drop-hover { outline: 3px dashed var(--gold); outline-offset: 2px; background: rgba(255,207,77,.12); }
+.bench[data-dropzone="bench"].drop-hover { outline: 2px dashed var(--gold); outline-offset: 4px; border-radius: 8px; background: rgba(255,207,77,.08); }
 /* アートは全カード同じ枠（画像 or タイプ色＋アイコン）で高さ統一 */
 .hc-art {
   width: 100%; height: 80px; border-radius: 6px; margin-bottom: 4px; flex-shrink: 0;

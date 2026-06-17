@@ -32,35 +32,39 @@ export class UI {
       if (h) h(el.dataset, e);
     });
 
-    // ---- ドラッグ&ドロップ（手札→自分のポケモン）: エネルギー付け / 進化 ----
+    // ---- ドラッグ&ドロップ（手札→自分の場）: エネルギー付け / 進化 / ベンチ展開 ----
+    // ドラッグ中の情報は this._drag に保持（dragover中は getData が読めないブラウザがあるため）
     root.addEventListener('dragstart', (e) => {
       const el = e.target.closest('[data-act="hand"][data-drag]');
       if (!el) { e.preventDefault(); return; }
-      e.dataTransfer.setData('text/plain', JSON.stringify({ kind: el.dataset.drag, i: el.dataset.i }));
+      this._drag = { kind: el.dataset.drag, i: parseInt(el.dataset.i, 10) };
+      e.dataTransfer.setData('text/plain', el.dataset.i);
       e.dataTransfer.effectAllowed = 'move';
       el.classList.add('dragging');
     });
     root.addEventListener('dragend', () => {
+      this._drag = null;
       root.querySelectorAll('.dragging').forEach(x => x.classList.remove('dragging'));
       root.querySelectorAll('.drop-hover').forEach(x => x.classList.remove('drop-hover'));
     });
+    const dropTargetFor = (kind, target) =>
+      kind === 'bench' ? target.closest('[data-dropzone="bench"]') : target.closest('.poke[data-side="0"]');
     root.addEventListener('dragover', (e) => {
-      const tgt = e.target.closest('.poke[data-side="0"]');
-      if (tgt) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; tgt.classList.add('drop-hover'); }
+      const d = this._drag; if (!d) return;
+      const z = dropTargetFor(d.kind, e.target);
+      if (z) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; z.classList.add('drop-hover'); }
     });
     root.addEventListener('dragleave', (e) => {
-      const tgt = e.target.closest('.poke[data-side="0"]');
-      if (tgt) tgt.classList.remove('drop-hover');
+      const z = e.target.closest('[data-dropzone="bench"], .poke[data-side="0"]');
+      if (z) z.classList.remove('drop-hover');
     });
     root.addEventListener('drop', (e) => {
-      const tgt = e.target.closest('.poke[data-side="0"]');
-      if (!tgt) return;
-      e.preventDefault(); tgt.classList.remove('drop-hover');
-      let payload; try { payload = JSON.parse(e.dataTransfer.getData('text/plain')); } catch { return; }
-      if (!payload) return;
-      const arg = { i: parseInt(payload.i, 10), uid: tgt.dataset.uid };
-      const h = this.handlers[payload.kind === 'evolve' ? 'evolve-drop' : 'energy-drop'];
-      if (h) h(arg);
+      const d = this._drag; if (!d) return;
+      const z = dropTargetFor(d.kind, e.target);
+      if (!z) return;
+      e.preventDefault(); z.classList.remove('drop-hover');
+      if (d.kind === 'bench') { const h = this.handlers['bench-drop']; if (h) h({ i: d.i }); }
+      else { const h = this.handlers[d.kind === 'evolve' ? 'evolve-drop' : 'energy-drop']; if (h) h({ i: d.i, uid: z.dataset.uid }); }
     });
   }
 
@@ -106,9 +110,10 @@ export class UI {
   _fieldRow(game, p, side, targets, isOpp) {
     const bench = p.bench.map((b, i) => this._pokemonCard(b, side, targets, false, i)).join('');
     const active = p.active ? this._pokemonCard(p.active, side, targets, true) : `<div class="poke empty">バトル場</div>`;
+    const dz = isOpp ? '' : 'data-dropzone="bench"';
     return `<div class="field ${isOpp ? 'opp' : 'me'}">
       <div class="active-slot">${active}</div>
-      <div class="bench">${bench || '<div class="poke empty small">ベンチ</div>'}</div>
+      <div class="bench" ${dz}>${bench || '<div class="poke empty small">ベンチ</div>'}</div>
     </div>`;
   }
 
@@ -168,7 +173,8 @@ export class UI {
       const artStyle = img ? `background-image:url('${img}')` : `background:linear-gradient(160deg, ${color}, rgba(0,0,0,.35))`;
       const artInner = img ? '' : `<span class="hc-ico">${ico}</span>`;
       const dragKind = c.category === 'Energy' ? 'energy'
-        : (c.category === 'Pokemon' && c.stage !== 'Basic') ? 'evolve' : '';
+        : (c.category === 'Pokemon' && c.stage !== 'Basic') ? 'evolve'
+        : (c.category === 'Pokemon' && c.stage === 'Basic') ? 'bench' : '';
       const drag = dragKind ? `draggable="true" data-drag="${dragKind}"` : '';
       return `<div class="hand-card ${sel} ${dragKind ? 'draggable-card' : ''}" data-act="hand" data-i="${i}" ${drag} style="border-top:4px solid ${color}">
         ${badge}
