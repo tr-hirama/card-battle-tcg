@@ -61,6 +61,13 @@ npx serve .
    生成された `js/data/cards.local.js` も `.gitignore` 済みで公開されません。
    デッキは未定義なら手持ちカードから自動構築されます（`js/data/decks.local.js` で番号指定も可）。
 
+### デッキコードから丸ごと取り込み
+pokemon-card.com のデッキコード（`deck/confirm.html/deckID/<コード>`）から、デッキ内の全カード（データ・画像・枚数）を取り込めます:
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\import-deck.ps1 -DeckCode ppRySR-eJ2k2F-p3ypXS
+```
+`cards.local.js`（全カード）と `decks.local.js`（番号と枚数のデッキ定義）が生成され、メニューに「取り込みデッキ」が追加されます。ポケモンは戦闘データを完全取得。トレーナーズ/特殊エネルギーの複雑な効果は未実装（出せますが効果なし）で、画像・名前・分類は反映されます。
+
 > 画像はリンク参照のみで、ダウンロード・再配布はしません。あくまで個人のローカル利用に限定してください。
 
 ## テスト

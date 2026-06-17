@@ -17,7 +17,7 @@ $ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 $origin = "https://www.pokemon-card.com"
 
 $iconType = @{ grass='Grass'; fire='Fire'; water='Water'; lightning='Lightning';
-  psychic='Psychic'; fighting='Fighting'; darkness='Darkness'; metal='Metal';
+  psychic='Psychic'; fighting='Fighting'; darkness='Darkness'; dark='Darkness'; metal='Metal';
   dragon='Dragon'; fairy='Fairy'; none='Colorless' }
 $stageMap = @{ 'たね'='Basic'; '1進化'='Stage1'; '2進化'='Stage2' }
 

@@ -124,6 +124,9 @@ export function applyTrainerEffect(game, player, card, opts = {}) {
       if (opts.benchIndex == null) return { ok: false, error: '入れ替え先を選んでください', needTarget: 'ownBench' };
       return game.forceSwitch(game.players.indexOf(player), opts.benchIndex);
     }
+    case 'unimplemented':
+      // 取り込んだ実カードのトレーナーズ（複雑な効果は未実装）。出せるが効果なし。
+      return { ok: true, note: '（このカードの効果は未実装です）' };
     default:
       return { ok: false, error: '未対応のトレーナー効果' };
   }

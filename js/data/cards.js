@@ -32,7 +32,7 @@ export const TYPE_ICONS = {
 // pokemon-card.com の icon クラス → タイプ名
 export const PCG_ICON_TYPE = {
   grass: 'Grass', fire: 'Fire', water: 'Water', lightning: 'Lightning',
-  psychic: 'Psychic', fighting: 'Fighting', darkness: 'Darkness',
+  psychic: 'Psychic', fighting: 'Fighting', darkness: 'Darkness', dark: 'Darkness',
   metal: 'Metal', dragon: 'Dragon', fairy: 'Fairy', none: 'Colorless',
 };
 
