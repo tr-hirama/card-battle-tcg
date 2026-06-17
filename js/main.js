@@ -189,7 +189,7 @@ class Controller {
     u.on('a-attach', () => this.enterAttachTarget());
     u.on('a-trainer', () => this.onTrainer());
     u.on('a-stadium', () => this.act(this.game.playStadium(this.sel.hand)));
-    u.on('a-attack', (d) => this.act(this.game.useAttack(+d.idx), true));
+    u.on('a-attack', (d) => this.onAttack(+d.idx));
     u.on('a-retreat', () => this.enterRetreatTarget());
     u.on('a-ability', () => {
       const res = this.game.useAbility(this.pokeMenu);
@@ -214,6 +214,25 @@ class Controller {
     this.pokeMenu = null;
     this.sel.hand = (this.sel.hand === i) ? null : i;
     this.render();
+  }
+
+  // ワザ使用（対象選択が要るワザは相手ポケモンを選んでから解決）
+  onAttack(idx) {
+    const g = this.game, p = g.players[HUMAN];
+    const atk = p.active && p.active.card.attacks[idx];
+    if (!atk) return;
+    if (g.attackNeedsTarget(atk)) {
+      const opp = g.players[1];
+      const uids = new Set(g.allInPlay(opp).map(x => x.uid));
+      if (!uids.size) { this.flash = '対象がいません'; this.render(); return; }
+      this.targetMode = {
+        uids, prompt: 'ダメージを与える相手ポケモンを選んでください',
+        pick: (uid) => { this.pokeMenu = null; this.act(g.useAttack(idx, { targetUid: uid }), true); },
+      };
+      this.render();
+    } else {
+      this.act(g.useAttack(idx), true);
+    }
   }
 
   // ポケモンクリック

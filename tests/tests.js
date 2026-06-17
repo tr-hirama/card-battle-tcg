@@ -369,6 +369,35 @@ test('ハンドパワー：手札枚数×2のダメカン（弱点無視）', ()
   eq(g.players[1].active.damage, 60, '60ダメージ計上');
 });
 
+test('クルーエルアロー：対象選択・ベンチは素点でKO', () => {
+  registerLocalCards({ 'fd-kichi': { id: 'fd-kichi', name: 'TK', category: 'Pokemon', type: 'Darkness', hp: 200, stage: 'Basic', retreat: 2,
+    attacks: [{ name: 'クルーエルアロー', cost: { Colorless: 3 }, damage: 0, effectText: '相手のポケモン1匹に、100ダメージ。［ベンチは弱点・抵抗力を計算しない。］' }] } });
+  const g = new Game(DECKS.fire, DECKS.water, { rng: rngFrom(71) });
+  g.players[0].setupDone = true; g.players[1].setupDone = true;
+  g.turnPlayer = 0; g.turnCount = 2; g.phase = 'main';
+  const a = new PokemonInPlay('fd-kichi'); a.energy = ['energy-psychic', 'energy-psychic', 'energy-psychic']; g.players[0].active = a;
+  g.players[1].active = new PokemonInPlay('tidalon');
+  const bench = new PokemonInPlay('sprout'); g.players[1].bench = [bench];   // HP60
+  g.players[0].prizes = Array(6).fill('energy-fire');
+  eq(g.attackNeedsTarget(a.card.attacks[0]), true, '対象選択ワザ');
+  g.useAttack(0, { targetUid: bench.uid });
+  eq(g.players[1].bench.length, 0, 'ベンチを素点100でKO');
+  eq(g.players[0].prizes.length, 5, 'サイドを取る');
+});
+
+test('テレポートアタック：ダメージ後に自分をベンチと入れ替え', () => {
+  registerLocalCards({ 'sw-mon': { id: 'sw-mon', name: 'SW', category: 'Pokemon', type: 'Psychic', hp: 60, stage: 'Basic', retreat: 1,
+    attacks: [{ name: 'テレポートアタック', cost: { Psychic: 1 }, damage: 10, effectText: 'このポケモンをベンチポケモンと入れ替える。' }] } });
+  const g = new Game(DECKS.fire, DECKS.water, { rng: rngFrom(72) });
+  g.turnPlayer = 0; g.turnCount = 2; g.phase = 'main';
+  const a = new PokemonInPlay('sw-mon'); a.energy = ['energy-psychic']; g.players[0].active = a;
+  g.players[0].bench = [new PokemonInPlay('embor')];
+  g.players[1].active = new PokemonInPlay('aqualet');
+  g.useAttack(0);
+  eq(g.players[0].active.cardId, 'embor', 'ベンチと入れ替わった');
+  eq(g.players[1].active.damage, 10, '10ダメージは入る');
+});
+
 // ============================================================
 //  実行
 // ============================================================

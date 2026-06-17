@@ -5,7 +5,7 @@
 // ============================================================
 
 import { getCard } from '../data/cards.js';
-import { applyAttackEffect, applyTrainerEffect, parseHandCounters } from './effects.js';
+import { applyAttackEffect, applyTrainerEffect, parseHandCounters, parseFreeDamage } from './effects.js';
 
 let _uid = 1;
 const nextUid = () => 'p' + (_uid++);
@@ -584,6 +584,7 @@ export class Game {
     let dmg = attack.damage || 0;
     const eff = attack.effect || {};
     if (eff.plusPerEnergy) dmg += attacker.energyCount(eff.plusPerEnergy.type) * eff.plusPerEnergy.damage;
+    dmg += parseFreeDamage(attack); // 「相手のポケモン1匹に N」も火力として評価（対象は別途選ぶ）
     if (defender && dmg > 0) {
       const card = defender.card;
       if (card.weakness && card.weakness.type === attacker.card.type) dmg *= (card.weakness.mult || 2);
@@ -597,7 +598,10 @@ export class Game {
   _ownerOf(inst) { return this.players.find(p => p.active === inst || p.bench.includes(inst)) || null; }
 
   // ワザを使う（attackIndex）
-  useAttack(attackIndex) {
+  // この攻撃は相手ポケモンの対象選択が必要か（「相手のポケモン1匹に〜」系）
+  attackNeedsTarget(attack) { return parseFreeDamage(attack) > 0; }
+
+  useAttack(attackIndex, opts = {}) {
     const err = this._checkMain(); if (err) return { ok: false, error: err };
     if (this.hasAttacked) return { ok: false, error: 'すでに攻撃しました' };
     if (this.turnCount === 1 && this.turnPlayer === this.firstPlayer)
@@ -623,7 +627,7 @@ export class Game {
     }
 
     this.emit(`${p.name} の ${p.active.card.name} の「${atk.name}」！`);
-    applyAttackEffect(this, p, this.opp(), p.active, atk);
+    applyAttackEffect(this, p, this.opp(), p.active, atk, opts);
     this.hasAttacked = true;
     this._afterDamageChecks();
     return { ok: true };

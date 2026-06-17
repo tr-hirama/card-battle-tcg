@@ -12,10 +12,21 @@ export function parseHandCounters(attack) {
   const m = (attack && attack.effectText || '').match(/手札の枚数×(\d+)個ぶんのダメカン/);
   return m ? parseInt(m[1], 10) : 0;
 }
+// 「相手のポケモン1匹に N ダメージ」（対象を選ぶ。ベンチは弱点/抵抗を計算しない）
+export function parseFreeDamage(attack) {
+  if (attack && attack.freeDamage) return attack.freeDamage;
+  const m = (attack && attack.effectText || '').match(/相手の(?:バトル)?ポケモン1匹に[、,]?\s*(\d+)\s*ダメージ/);
+  return m ? parseInt(m[1], 10) : 0;
+}
+// 「このポケモンをベンチポケモンと入れ替える」
+export function parseSelfSwitch(attack) {
+  if (attack && attack.selfSwitch) return true;
+  return /このポケモンをベンチ(?:の)?ポケモンと入れ替える/.test(attack && attack.effectText || '');
+}
 
 // ---- ワザの効果 ----
-// game, attackerPlayer, defenderPlayer, attackerInst, attack
-export function applyAttackEffect(game, atkPlayer, defPlayer, inst, attack) {
+// game, attackerPlayer, defenderPlayer, attackerInst, attack, opts{targetUid}
+export function applyAttackEffect(game, atkPlayer, defPlayer, inst, attack, opts = {}) {
   const type = inst.card.type;
   let damage = attack.damage || 0;
   const eff = attack.effect || {};
@@ -42,6 +53,27 @@ export function applyAttackEffect(game, atkPlayer, defPlayer, inst, attack) {
     const counters = atkPlayer.hand.length * hc;
     defPlayer.active.damage += counters * 10;
     game.emit(`手札${atkPlayer.hand.length}枚ぶん：ダメカン${counters}個（${counters * 10}ダメージ）。`);
+  }
+
+  // 相手ポケモン1匹に N ダメージ（対象は opts.targetUid。バトル場は弱点/抵抗、ベンチは素点）
+  const fd = parseFreeDamage(attack);
+  if (fd) {
+    const oi = game.players.indexOf(defPlayer);
+    const target = opts.targetUid ? game._findInPlay(defPlayer, opts.targetUid) : defPlayer.active;
+    if (target && defPlayer.active && target.uid === defPlayer.active.uid) {
+      game.dealDamageToActive(inst, defPlayer, fd, type);
+    } else if (target) {
+      if (game._hasInPlayAbility(oi, 'はなのカーテン')) game.emit(`特性「はなのカーテン」により ${target.card.name} はダメージを受けない。`);
+      else { target.damage += fd; game.emit(`${target.card.name} に ${fd} ダメージ。`); }
+    }
+  }
+
+  // このポケモンをベンチと入れ替える（自動：HP最大のベンチへ）
+  if (parseSelfSwitch(attack) && atkPlayer.bench.length) {
+    let bi = 0, bh = -1;
+    atkPlayer.bench.forEach((b, i) => { if (b.currentHp > bh) { bh = b.currentHp; bi = i; } });
+    game.forceSwitch(game.players.indexOf(atkPlayer), bi);
+    game.emit('ワザの効果でベンチと入れ替えた。');
   }
 
   // 状態異常付与（直接 or コインオモテ時）

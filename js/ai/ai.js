@@ -292,6 +292,21 @@ export class AI {
     const b = this._bestAttackVs(inst, defender);
     return b ? b.eff : 0;
   }
+  // 対象選択ワザ：相手アクティブをKOできるならそれ、次にKOできるベンチ(最大HP)、無ければアクティブ
+  _pickFreeTarget(atk) {
+    const g = this.game, opp = this.opp(), active = this.player().active;
+    const raw = g.estimateDamage(active, atk, null);               // ベンチへの素点
+    if (opp.active && g.estimateDamage(active, atk, opp.active) >= opp.active.currentHp) return opp.active.uid;
+    let best = null, bestHp = -1;
+    opp.bench.forEach(b => { if (raw >= b.currentHp && b.currentHp > bestHp) { bestHp = b.currentHp; best = b; } });
+    if (best) return best.uid;
+    return opp.active ? opp.active.uid : (opp.bench[0] && opp.bench[0].uid);
+  }
+  _doAttack(best) {
+    const g = this.game;
+    const opts = g.attackNeedsTarget(best.atk) ? { targetUid: this._pickFreeTarget(best.atk) } : {};
+    g.useAttack(best.idx, opts);
+  }
 
   _attackOrPass() {
     const g = this.game, p = this.player();
@@ -312,10 +327,10 @@ export class AI {
           const better = p.bench.map((b, i) => ({ i, eff: this._maxEffective(b, oppActive) }))
             .filter(x => x.eff >= oppActive.currentHp && x.eff > best.eff)
             .sort((a, b) => b.eff - a.eff)[0];
-          if (better) { g.retreat(better.i); const nb = this._bestAttackVs(p.active, this.opp().active); if (nb) g.useAttack(nb.idx); return; }
+          if (better) { g.retreat(better.i); const nb = this._bestAttackVs(p.active, this.opp().active); if (nb) this._doAttack(nb); return; }
         }
       }
-      g.useAttack(best.idx); return;
+      this._doAttack(best); return;
     }
 
     // アクティブで殴れない：殴れるベンチに入れ替える（相手への実効ダメージ最大）
@@ -326,7 +341,7 @@ export class AI {
         candidate.sort((a, b) => b.eff - a.eff);
         g.retreat(candidate[0].i);
         const nb = this._bestAttackVs(p.active, this.opp().active);
-        if (nb) g.useAttack(nb.idx);
+        if (nb) this._doAttack(nb);
       }
     }
   }
