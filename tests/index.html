@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>テスト | カードバトル</title>
+  <style>
+    body { font-family: "Segoe UI", "Meiryo", sans-serif; background:#0e1726; color:#e8eefc; padding:24px; }
+    h1 { font-size:1.3rem; } h2 { font-size:1.1rem; }
+    .ok { color:#8be58f; } .ng { color:#ff7b7b; }
+    div.ok, div.ng { padding:3px 0; border-bottom:1px solid rgba(255,255,255,.06); }
+    code { color:#ffcf4d; }
+    #out { margin-top:12px; }
+  </style>
+</head>
+<body>
+  <h1>⚔️ カードバトル — テスト</h1>
+  <p>localhost で実行（crypto.subtle のため secure context が必要）。</p>
+  <div id="out">実行中…</div>
+  <script type="module" src="tests.js"></script>
+</body>
+</html>
