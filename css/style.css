@@ -90,9 +90,12 @@ select {
   border-bottom: 1px dashed var(--line); padding: 4px;
 }
 .turn-info { color: var(--gold); font-size: .9rem; font-weight: 600; }
-.stadium-chip { margin-left: 10px; padding: 2px 10px; border-radius: 14px;
-  background: rgba(120,160,255,.15); border: 1px solid #5a78c0; color: #aac4ff; font-size: .8rem; }
+.stadium-chip { margin-left: 10px; padding: 2px 10px 2px 4px; border-radius: 14px;
+  background: rgba(120,160,255,.15); border: 1px solid #5a78c0; color: #aac4ff; font-size: .8rem;
+  display: inline-flex; align-items: center; gap: 6px; }
 .stadium-chip small { color: var(--muted); }
+.stadium-thumb { width: 26px; height: 26px; border-radius: 5px; flex-shrink: 0;
+  background-size: cover; background-position: center; border: 1px solid rgba(255,255,255,.25); }
 
 /* ---- ポケモンカード ---- */
 .poke {
