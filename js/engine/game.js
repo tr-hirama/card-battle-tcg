@@ -77,6 +77,7 @@ export class Game {
     this.winner = null;          // 0 | 1 | null
     this.winReason = '';
     this.awaitingStartDraw = false; // 昇格待ちでターン開始ドローを保留中か
+    this.stadium = null;            // 場のスタジアム { id, owner } | null
     this.onChange = () => {};
     this.onLog = () => {};
     this.pendingCoin = null;     // {label, resolve} UI用
@@ -89,6 +90,7 @@ export class Game {
     this.supporterPlayed = false;
     this.hasAttacked = false;
     this.retreatedThisTurn = false;
+    this.stadiumPlayed = false;
   }
 
   emit(msg) {
@@ -440,6 +442,41 @@ export class Game {
     target.status.clear();
     this.emit(`${p.name} は ふしぎなアメ で ${target.card.name} に進化させた。`);
     return { ok: true };
+  }
+
+  // ============================================================
+  //  スタジアム
+  // ============================================================
+  activeStadium() { return this.stadium ? getCard(this.stadium.id) : null; }
+
+  playStadium(handIndex) {
+    const err = this._checkMain(); if (err) return { ok: false, error: err };
+    if (this.stadiumPlayed) return { ok: false, error: 'スタジアムはこのターンもう出しました' };
+    const p = this.cur(); const id = p.hand[handIndex]; const c = id && getCard(id);
+    if (!c || c.category !== 'Trainer' || c.trainerType !== 'Stadium') return { ok: false, error: 'スタジアムではありません' };
+    if (this.stadium && getCard(this.stadium.id).name === c.name) return { ok: false, error: '同じ名前のスタジアムは出せません' };
+    p.hand.splice(handIndex, 1);
+    if (this.stadium) { this.players[this.stadium.owner].discard.push(this.stadium.id); this.emit(`場の ${getCard(this.stadium.id).name} はトラッシュされた。`); }
+    this.stadium = { id, owner: this.turnPlayer };
+    this.stadiumPlayed = true;
+    this.emit(`${p.name} は スタジアム ${c.name} を出した。`);
+    return { ok: true };
+  }
+
+  // 場のスタジアムにより、相手の効果でベンチにダメカンがのらないか
+  _benchProtectedFromOpponent() {
+    const s = this.activeStadium();
+    return !!(s && s.name === 'バトルコロシアム');
+  }
+  // ベンチへのダメージ配置（スタジアム等の継続効果を尊重）
+  // ownerIndex: ダメージを受ける側 / sourceIndex: 効果の主
+  placeBenchDamage(ownerIndex, inst, dmg, sourceIndex) {
+    if (!inst || dmg <= 0) return;
+    if (sourceIndex !== ownerIndex && this._benchProtectedFromOpponent()) {
+      this.emit(`バトルコロシアムにより ${inst.card.name} にダメカンはのらない。`);
+      return;
+    }
+    inst.damage += dmg;
   }
 
   // 手動の入れ替え（トレーナー「いれかえ」用）

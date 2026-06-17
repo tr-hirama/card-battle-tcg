@@ -221,6 +221,44 @@ test('searchDeckToBench / moveDiscardToHand', () => {
 });
 
 // ============================================================
+//  スタジアム
+// ============================================================
+test('スタジアム：1ターン1枚・別名で置換しトラッシュ', () => {
+  registerLocalCards({
+    'st-colo':  { id: 'st-colo',  name: 'バトルコロシアム',   category: 'Trainer', trainerType: 'Stadium' },
+    'st-other': { id: 'st-other', name: 'テストスタジアム', category: 'Trainer', trainerType: 'Stadium' },
+  });
+  const g = new Game(DECKS.fire, DECKS.water, { rng: rngFrom(21) });
+  g.turnPlayer = 0; g.phase = 'main';
+  g.players[0].hand = ['st-colo', 'st-other'];
+  assert(g.playStadium(0).ok, '配置'); eq(g.activeStadium().name, 'バトルコロシアム');
+  eq(g.playStadium(0).ok, false, '1ターン1枚不可');
+  g._resetTurnFlags();
+  assert(g.playStadium(0).ok, '別名で置換'); eq(g.activeStadium().name, 'テストスタジアム');
+  assert(g.players[0].discard.includes('st-colo'), '旧スタジアムはトラッシュ');
+});
+
+test('スタジアム：同名は出せない', () => {
+  const g = new Game(DECKS.fire, DECKS.water, { rng: rngFrom(22) });
+  g.turnPlayer = 0; g.phase = 'main';
+  g.players[0].hand = ['st-colo', 'st-colo'];
+  assert(g.playStadium(0).ok, '1枚目'); g._resetTurnFlags();
+  eq(g.playStadium(0).ok, false, '同名拒否');
+});
+
+test('バトルコロシアム：相手効果のベンチダメージを防ぐ', () => {
+  const g = new Game(DECKS.fire, DECKS.water, { rng: rngFrom(23) });
+  g.turnPlayer = 0;
+  const a = new PokemonInPlay('embor');
+  g.placeBenchDamage(1, a, 20, 0); eq(a.damage, 20, 'スタジアム無しは通る');
+  g.stadium = { id: 'st-colo', owner: 0 };
+  const b = new PokemonInPlay('embor');
+  g.placeBenchDamage(1, b, 20, 0); eq(b.damage, 0, '相手効果は防がれる');
+  const c = new PokemonInPlay('embor');
+  g.placeBenchDamage(0, c, 20, 0); eq(c.damage, 20, '自分の効果は通る');
+});
+
+// ============================================================
 //  実行
 // ============================================================
 async function run() {

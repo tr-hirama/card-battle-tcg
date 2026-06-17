@@ -55,10 +55,18 @@ export function applyAttackEffect(game, atkPlayer, defPlayer, inst, attack) {
     game.emit(`${inst.card.name} のHPを${eff.heal}回復。`);
   }
 
-  // ベンチ全体に自傷
+  // ベンチ全体に自傷（自分の効果なのでスタジアムでは防がれない）
   if (eff.benchDamageSelf) {
-    for (const b of atkPlayer.bench) game.dealRawDamage(b, eff.benchDamageSelf);
+    const oi = game.players.indexOf(atkPlayer);
+    for (const b of atkPlayer.bench) game.placeBenchDamage(oi, b, eff.benchDamageSelf, oi);
     game.emit(`自分のベンチに${eff.benchDamageSelf}ダメージ。`);
+  }
+
+  // 相手のベンチ全体にダメージ（相手の場へ＝バトルコロシアムで防がれる）
+  if (eff.benchDamageOpponent) {
+    const oi = game.players.indexOf(defPlayer); const si = game.players.indexOf(atkPlayer);
+    for (const b of defPlayer.bench) game.placeBenchDamage(oi, b, eff.benchDamageOpponent, si);
+    game.emit(`相手のベンチに${eff.benchDamageOpponent}ダメージ。`);
   }
 
   // 自分のエネルギーをトラッシュ

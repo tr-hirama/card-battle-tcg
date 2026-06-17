@@ -48,6 +48,7 @@ export class UI {
         ${this._fieldRow(game, opp, 1, targets, true)}
         <div class="midline">
           <span class="turn-info">ターン ${game.turnCount}・${game.players[game.turnPlayer].name}の番</span>
+          ${game.stadium ? `<span class="stadium-chip">🏟 ${getCard(game.stadium.id).name}<small>（${game.players[game.stadium.owner].name}）</small></span>` : ''}
         </div>
         ${this._fieldRow(game, me, 0, targets, false)}
         ${this._sideStrip(me, false)}

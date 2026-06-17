@@ -133,6 +133,11 @@ class Controller {
       btns += `<button data-act="a-evolve" class="btn ${can ? 'primary' : 'disabled'}">進化させる</button>`;
     } else if (c.category === 'Energy') {
       btns += `<button data-act="a-attach" class="btn ${g.energyAttached ? 'disabled' : 'primary'}">ポケモンにつける</button>`;
+    } else if (c.category === 'Trainer' && c.trainerType === 'Stadium') {
+      const sameOut = g.stadium && getCard(g.stadium.id).name === c.name;
+      const blocked = g.stadiumPlayed || sameOut;
+      btns += `<button data-act="a-stadium" class="btn ${blocked ? 'disabled' : 'primary'}">スタジアムを出す</button>`;
+      btns += `<span class="hint">${sameOut ? '同名のスタジアムが出ています' : (c.text || '')}</span>`;
     } else if (c.category === 'Trainer') {
       const blocked = c.trainerType === 'Supporter' && (g.supporterPlayed || (g.turnCount === 1 && g.turnPlayer === g.firstPlayer));
       btns += `<button data-act="a-trainer" class="btn ${blocked ? 'disabled' : 'primary'}">使う</button>`;
@@ -175,6 +180,7 @@ class Controller {
     u.on('a-evolve', () => this.enterEvolveTarget());
     u.on('a-attach', () => this.enterAttachTarget());
     u.on('a-trainer', () => this.onTrainer());
+    u.on('a-stadium', () => this.act(this.game.playStadium(this.sel.hand)));
     u.on('a-attack', (d) => this.act(this.game.useAttack(+d.idx), true));
     u.on('a-retreat', () => this.enterRetreatTarget());
   }
