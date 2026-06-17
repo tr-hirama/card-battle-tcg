@@ -195,6 +195,10 @@ class Controller {
     u.on('energy-drop', (d) => this.onEnergyDrop(d.i, d.uid));
     u.on('evolve-drop', (d) => this.onEvolveDrop(d.i, d.uid));
     u.on('bench-drop', (d) => this.onBenchDrop(d.i));
+    u.on('view-trash', (d) => {
+      const side = +d.side;
+      this.ui.showViewer(`${this.game.players[side].name} のトラッシュ`, this.game.players[side].discard);
+    });
     u.on('a-ability', () => {
       const res = this.game.useAbility(this.pokeMenu);
       if (!res.ok) { this.flash = res.error; this.render(); return; }

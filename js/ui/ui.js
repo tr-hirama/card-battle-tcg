@@ -101,7 +101,7 @@ export class UI {
   _sideStrip(p, isOpp) {
     return `<div class="side-strip ${isOpp ? 'opp' : 'me'}">
       <span class="pill">🂠 山札 ${p.deck.length}</span>
-      <span class="pill">🗑 トラッシュ ${p.discard.length}</span>
+      <span class="pill clickable" data-act="view-trash" data-side="${isOpp ? 1 : 0}">🗑 トラッシュ ${p.discard.length}</span>
       <span class="pill prize">🏅 サイド ${p.prizes.length}</span>
       <span class="pill">✋ 手札 ${p.hand.length}</span>
     </div>`;
@@ -253,6 +253,43 @@ export class UI {
     refresh();
   }
   closePicker() { if (this._picker) { this._picker.remove(); this._picker = null; } }
+
+  // カードid → 表示用アイテム（画像はアンロック時のみ）
+  _cardItem(id) {
+    const c = getCard(id);
+    const ico = c.category === 'Pokemon' ? (TYPE_ICONS[c.type] || '⭐')
+      : c.category === 'Energy' ? (TYPE_ICONS[c.energyType] || '⭐')
+      : (c.trainerType === 'Supporter' ? '🧑' : c.trainerType === 'Stadium' ? '🏟' : c.trainerType === 'Tool' ? '🔧' : '🎒');
+    const sub = c.category === 'Pokemon' ? `${c.stage} HP${c.hp}`
+      : c.category === 'Energy' ? (c.basic ? '基本エネ' : 'エネ')
+      : (c.trainerType === 'Supporter' ? 'サポート' : c.trainerType === 'Stadium' ? 'スタジアム' : c.trainerType === 'Tool' ? 'どうぐ' : 'グッズ');
+    return { label: c.name, sublabel: sub, imageUrl: cardImage(c), ico };
+  }
+
+  // 読み取り専用ビューア（トラッシュ確認など）
+  showViewer(title, cardIds) {
+    this.closePicker();
+    const items = cardIds.map(id => this._cardItem(id));
+    const ov = document.createElement('div');
+    ov.className = 'picker-overlay';
+    ov.innerHTML = `
+      <div class="picker">
+        <div class="picker-head">${title}<span class="picker-count">（${items.length}枚）</span></div>
+        <div class="picker-list">
+          ${items.length ? items.map(it => `
+            <div class="picker-card view">
+              <div class="pc-art${it.imageUrl ? '' : ' noimg'}" ${it.imageUrl ? `style="background-image:url('${it.imageUrl}')"` : ''}>${it.imageUrl ? '' : it.ico}</div>
+              <div class="pc-name">${it.label}</div>
+              <div class="pc-sub">${it.sublabel}</div>
+            </div>`).join('') : '<div class="picker-empty">トラッシュは空です</div>'}
+        </div>
+        <div class="picker-actions"><button class="btn primary close-v">閉じる</button></div>
+      </div>`;
+    document.body.appendChild(ov);
+    this._picker = ov;
+    ov.querySelector('.close-v').addEventListener('click', () => this.closePicker());
+    ov.addEventListener('click', (e) => { if (e.target === ov) this.closePicker(); });
+  }
 
   // ログ描画（別要素）
   renderLog(logEl, log) {

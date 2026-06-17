@@ -79,6 +79,8 @@ select {
   border-radius: 20px; padding: 3px 12px; font-size: .8rem; color: var(--muted);
 }
 .pill.prize { color: var(--gold); border-color: var(--gold); }
+.pill.clickable { cursor: pointer; }
+.pill.clickable:hover { filter: brightness(1.25); border-color: var(--text); }
 
 .field { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 6px; }
 .field.opp { flex-direction: column-reverse; }
@@ -210,6 +212,8 @@ select {
 }
 .picker-card:hover { transform: translateY(-2px); }
 .picker-card.sel { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(255,207,77,.4); }
+.picker-card.view { cursor: default; }
+.picker-card.view:hover { transform: none; }
 .pc-art { width: 100%; height: 110px; border-radius: 6px; background-size: cover; background-position: center; }
 .pc-art.noimg { display: flex; align-items: center; justify-content: center; font-size: 2rem; color: var(--muted); }
 .pc-name { font-size: .8rem; font-weight: 600; margin-top: 4px; }
