@@ -128,12 +128,14 @@ export class UI {
       return `<span class="energy-dot" style="background:${TYPE_COLORS[e.energyType]}" title="${e.name}">${TYPE_ICONS[e.energyType] || ''}</span>`;
     }).join('');
     const img = cardImage(c);
-    const head = img
-      ? `<span class="pthumb" style="background-image:url('${img}')"></span>`
+    const bigArt = isActive && img;   // バトル場は画像を大きく表示
+    const head = bigArt ? ''
+      : img ? `<span class="pthumb" style="background-image:url('${img}')"></span>`
       : `<span class="ptype" style="background:${color}">${TYPE_ICONS[c.type] || ''}</span>`;
     return `<div class="poke ${isActive ? 'active' : 'bench-poke'} ${sel}"
       data-act="poke" data-uid="${inst.uid}" data-side="${side}" data-bench="${benchIndex == null ? '' : benchIndex}"
       style="border-color:${color}">
+      ${bigArt ? `<div class="poke-art" style="background-image:url('${img}')"></div>` : ''}
       <div class="poke-head">
         ${head}
         <span class="pname">${c.name}</span>

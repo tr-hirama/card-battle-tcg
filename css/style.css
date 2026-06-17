@@ -106,7 +106,13 @@ select {
   transition: .12s; position: relative;
 }
 .poke:hover { transform: translateY(-2px); filter: brightness(1.1); }
-.poke.active { width: 160px; box-shadow: 0 0 0 2px rgba(255,255,255,.08); }
+.poke.active { width: 168px; box-shadow: 0 0 0 2px rgba(255,255,255,.08); }
+/* バトル場の大きいカード画像 */
+.poke-art {
+  width: 100%; height: 150px; border-radius: 8px; margin-bottom: 6px;
+  background-size: cover; background-position: center 22%;
+  border: 1px solid rgba(255,255,255,.2);
+}
 .poke.bench-poke { width: 110px; font-size: .85rem; }
 .poke.empty {
   border-style: dashed; color: var(--muted); display: flex;
