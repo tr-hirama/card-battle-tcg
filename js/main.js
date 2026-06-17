@@ -116,7 +116,7 @@ class Controller {
       ctx.actionsHtml = this.handActionsHtml(this.sel.hand);
       return ctx;
     }
-    ctx.actionsHtml = `<span class="hint">手札やバトルポケモンをクリックして操作</span>`;
+    ctx.actionsHtml = `<span class="hint">手札やバトルポケモンをクリックして操作（エネルギーはポケモンにドラッグでつけられます）</span>`;
     return ctx;
   }
 
@@ -191,6 +191,7 @@ class Controller {
     u.on('a-stadium', () => this.act(this.game.playStadium(this.sel.hand)));
     u.on('a-attack', (d) => this.onAttack(+d.idx));
     u.on('a-retreat', () => this.enterRetreatTarget());
+    u.on('energy-drop', (d) => this.onEnergyDrop(d.i, d.uid));
     u.on('a-ability', () => {
       const res = this.game.useAbility(this.pokeMenu);
       if (!res.ok) { this.flash = res.error; this.render(); return; }
@@ -213,6 +214,16 @@ class Controller {
     if (this.targetMode) return;
     this.pokeMenu = null;
     this.sel.hand = (this.sel.hand === i) ? null : i;
+    this.render();
+  }
+
+  // エネルギーをドラッグ&ドロップで付ける
+  onEnergyDrop(handIndex, uid) {
+    const g = this.game;
+    if (g.turnPlayer !== HUMAN || g.phase !== 'main') { this.flash = '今は操作できません'; this.render(); return; }
+    const res = g.attachEnergy(handIndex, uid);
+    if (!res.ok) { this.flash = res.error; this.render(); return; }
+    this.sel.hand = null; this.pokeMenu = null; this.targetMode = null;
     this.render();
   }
 

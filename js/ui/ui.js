@@ -31,6 +31,35 @@ export class UI {
       const h = this.handlers[act];
       if (h) h(el.dataset, e);
     });
+
+    // ---- エネルギーのドラッグ&ドロップ（手札→自分のポケモン）----
+    root.addEventListener('dragstart', (e) => {
+      const el = e.target.closest('[data-act="hand"][data-energy="1"]');
+      if (!el) { e.preventDefault(); return; }
+      e.dataTransfer.setData('text/plain', el.dataset.i);
+      e.dataTransfer.effectAllowed = 'move';
+      el.classList.add('dragging');
+    });
+    root.addEventListener('dragend', () => {
+      root.querySelectorAll('.dragging').forEach(x => x.classList.remove('dragging'));
+      root.querySelectorAll('.drop-hover').forEach(x => x.classList.remove('drop-hover'));
+    });
+    root.addEventListener('dragover', (e) => {
+      const tgt = e.target.closest('.poke[data-side="0"]');
+      if (tgt) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; tgt.classList.add('drop-hover'); }
+    });
+    root.addEventListener('dragleave', (e) => {
+      const tgt = e.target.closest('.poke[data-side="0"]');
+      if (tgt) tgt.classList.remove('drop-hover');
+    });
+    root.addEventListener('drop', (e) => {
+      const tgt = e.target.closest('.poke[data-side="0"]');
+      if (!tgt) return;
+      e.preventDefault(); tgt.classList.remove('drop-hover');
+      const raw = e.dataTransfer.getData('text/plain');
+      const h = this.handlers['energy-drop'];
+      if (h && raw !== '') h({ i: parseInt(raw, 10), uid: tgt.dataset.uid });
+    });
   }
 
   on(act, fn) { this.handlers[act] = fn; }
@@ -126,7 +155,8 @@ export class UI {
         : c.trainerType === 'Supporter' ? 'サポート' : 'グッズ';
       const img = cardImage(c);
       const art = img ? `<div class="hc-art" style="background-image:url('${img}')"></div>` : '';
-      return `<div class="hand-card ${sel} ${img ? 'has-art' : ''}" data-act="hand" data-i="${i}" style="border-top:4px solid ${color}">
+      const drag = c.category === 'Energy' ? 'draggable="true" data-energy="1"' : '';
+      return `<div class="hand-card ${sel} ${img ? 'has-art' : ''} ${c.category === 'Energy' ? 'draggable-energy' : ''}" data-act="hand" data-i="${i}" ${drag} style="border-top:4px solid ${color}">
         ${badge}
         ${art}
         <div class="hc-name">${c.name}</div>
