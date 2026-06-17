@@ -259,6 +259,60 @@ test('バトルコロシアム：相手効果のベンチダメージを防ぐ',
 });
 
 // ============================================================
+//  特性
+// ============================================================
+test('特性サイコドロー：進化時に引く', () => {
+  registerLocalCards({
+    'ab-base': { id: 'ab-base', name: 'AB',  category: 'Pokemon', type: 'Psychic', hp: 50, stage: 'Basic',  retreat: 1, attacks: [] },
+    'ab-s1':   { id: 'ab-s1',   name: 'AB1', category: 'Pokemon', type: 'Psychic', hp: 80, stage: 'Stage1', evolvesFrom: 'ab-base', retreat: 1, attacks: [], ability: { name: 'サイコドロー', text: '自分の山札を2枚引く。' } },
+  });
+  const g = new Game(DECKS.fire, DECKS.water, { rng: rngFrom(31) });
+  g.turnPlayer = 0; g.turnCount = 2; g.phase = 'main';
+  const inst = new PokemonInPlay('ab-base'); inst.placedTurn = 1; g.players[0].active = inst;
+  g.players[0].hand = ['ab-s1']; g.players[0].deck = ['energy-fire', 'energy-fire', 'energy-fire'];
+  const before = g.players[0].deck.length;
+  assert(g.evolve(0, inst.uid).ok, 'evolve');
+  eq(g.players[0].deck.length, before - 2, '2枚引いた'); eq(g.players[0].hand.length, 2, '手札に2枚');
+});
+
+test('特性にげあしドロー：3枚引き自身を山札へ', () => {
+  registerLocalCards({ 'ab-noko': { id: 'ab-noko', name: 'NK', category: 'Pokemon', type: 'Colorless', hp: 90, stage: 'Stage1', evolvesFrom: 'ab-base', retreat: 1, attacks: [], ability: { name: 'にげあしドロー', text: '...' } } });
+  const g = new Game(DECKS.fire, DECKS.water, { rng: rngFrom(32) });
+  g.turnPlayer = 0; g.turnCount = 2; g.phase = 'main';
+  const inst = new PokemonInPlay('ab-noko'); inst.energy = ['energy-fire']; g.players[0].bench = [inst];
+  g.players[0].deck = ['aqualet', 'aqualet', 'aqualet', 'aqualet']; g.players[0].hand = [];
+  const beforeDeck = g.players[0].deck.length;
+  assert(g.useAbility(inst.uid).ok, 'use');
+  eq(g.players[0].hand.length, 3, '3枚引いた');
+  eq(g.players[0].deck.length, beforeDeck - 3 + 2, '自身とエネが山札へ');
+  eq(g.players[0].bench.length, 0, 'ベンチから消える');
+});
+
+test('特性さかてにとる：前ターンきぜつ時のみ・1回', () => {
+  registerLocalCards({ 'ab-kichi': { id: 'ab-kichi', name: 'KK', category: 'Pokemon', type: 'Darkness', hp: 210, stage: 'Basic', retreat: 1, attacks: [], ability: { name: 'さかてにとる', text: '...' } } });
+  const g = new Game(DECKS.fire, DECKS.water, { rng: rngFrom(33) });
+  g.turnPlayer = 0; g.turnCount = 2; g.phase = 'main';
+  const inst = new PokemonInPlay('ab-kichi'); g.players[0].active = inst;
+  g.players[0].deck = ['aqualet', 'aqualet', 'aqualet', 'aqualet'];
+  g._koLastTurnSnapshot = [false, false];
+  eq(g.useAbility(inst.uid).ok, false, '条件未達は不可');
+  g._koLastTurnSnapshot = [true, false];
+  assert(g.useAbility(inst.uid).ok, '条件達成で使える');
+  eq(g.players[0].hand.length, 3, '3枚');
+  eq(g.useAbility(inst.uid).ok, false, '1ターン1回');
+});
+
+test('特性はなのカーテン：相手効果のベンチダメージを防ぐ', () => {
+  registerLocalCards({ 'ab-shaymin': { id: 'ab-shaymin', name: 'SH', category: 'Pokemon', type: 'Grass', hp: 70, stage: 'Basic', retreat: 1, attacks: [], ability: { name: 'はなのカーテン', text: '...' } } });
+  const g = new Game(DECKS.fire, DECKS.water, { rng: rngFrom(34) });
+  g.turnPlayer = 0;
+  g.players[1].bench = [new PokemonInPlay('ab-shaymin'), new PokemonInPlay('embor')];
+  const target = g.players[1].bench[1];
+  g.placeBenchDamage(1, target, 20, 0);
+  eq(target.damage, 0, 'はなのカーテンで0');
+});
+
+// ============================================================
 //  実行
 // ============================================================
 async function run() {

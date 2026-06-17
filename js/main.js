@@ -149,19 +149,27 @@ class Controller {
 
   attackMenuHtml() {
     const g = this.game, p = g.players[HUMAN];
-    const a = p.active; if (!a) return '';
-    let btns = `<span class="hint">${a.card.name}：</span>`;
-    (a.card.attacks || []).forEach((atk, idx) => {
-      const can = g.canUseAttack(a, atk)
-        && !(g.turnCount === 1 && g.turnPlayer === g.firstPlayer)
-        && !a.status.has('asleep') && !a.status.has('paralyzed');
-      const cost = Object.entries(atk.cost).map(([t, n]) => `${t}×${n}`).join(' ');
-      btns += `<button data-act="a-attack" data-idx="${idx}" class="btn ${can ? 'danger' : 'disabled'}">${atk.name}${atk.damage ? ' ' + atk.damage : ''} <small>[${cost}]</small></button>`;
-    });
-    const cost = a.card.retreat || 0;
-    const canRetreat = !g.retreatedThisTurn && p.bench.length > 0 && a.energy.length >= cost
-      && !a.status.has('asleep') && !a.status.has('paralyzed');
-    btns += `<button data-act="a-retreat" class="btn ${canRetreat ? '' : 'disabled'}">にげる <small>[エネ${cost}]</small></button>`;
+    const inst = g._findInPlay(p, this.pokeMenu); if (!inst) return '';
+    const isActive = p.active && p.active.uid === inst.uid;
+    let btns = `<span class="hint">${inst.card.name}：</span>`;
+    if (isActive) {
+      (inst.card.attacks || []).forEach((atk, idx) => {
+        const can = g.canUseAttack(inst, atk)
+          && !(g.turnCount === 1 && g.turnPlayer === g.firstPlayer)
+          && !inst.status.has('asleep') && !inst.status.has('paralyzed');
+        const cost = Object.entries(atk.cost).map(([t, n]) => `${t}×${n}`).join(' ');
+        btns += `<button data-act="a-attack" data-idx="${idx}" class="btn ${can ? 'danger' : 'disabled'}">${atk.name}${atk.damage ? ' ' + atk.damage : ''} <small>[${cost}]</small></button>`;
+      });
+      const cost = inst.card.retreat || 0;
+      const canRetreat = !g.retreatedThisTurn && p.bench.length > 0 && inst.energy.length >= cost
+        && !inst.status.has('asleep') && !inst.status.has('paralyzed');
+      btns += `<button data-act="a-retreat" class="btn ${canRetreat ? '' : 'disabled'}">にげる <small>[エネ${cost}]</small></button>`;
+    }
+    // 起動特性
+    if (g.isActivatedAbility(inst.card)) {
+      const ok = g.canUseAbility(inst).ok;
+      btns += `<button data-act="a-ability" class="btn ${ok ? 'primary' : 'disabled'}">特性「${inst.card.ability.name}」</button>`;
+    }
     btns += `<button data-act="cancel" class="btn">やめる</button>`;
     return btns;
   }
@@ -183,6 +191,11 @@ class Controller {
     u.on('a-stadium', () => this.act(this.game.playStadium(this.sel.hand)));
     u.on('a-attack', (d) => this.act(this.game.useAttack(+d.idx), true));
     u.on('a-retreat', () => this.enterRetreatTarget());
+    u.on('a-ability', () => {
+      const res = this.game.useAbility(this.pokeMenu);
+      if (!res.ok) { this.flash = res.error; this.render(); return; }
+      this.pokeMenu = null; this.sel.hand = null; this.render();
+    });
   }
 
   // 手札クリック
@@ -208,8 +221,8 @@ class Controller {
     const g = this.game;
     if (this.targetMode && this.targetMode.uids.has(uid)) { this.targetMode.pick(uid); return; }
     if (g.turnPlayer !== HUMAN || g.phase !== 'main') return;
-    if (side === '0' && g.players[HUMAN].active && g.players[HUMAN].active.uid === uid) {
-      // 自分のアクティブ → 攻撃メニュー
+    // 自分のポケモン（アクティブ/ベンチ）→ 行動メニュー（ワザ・にげる・特性）
+    if (side === '0' && g._findInPlay(g.players[HUMAN], uid)) {
       this.sel.hand = null;
       this.pokeMenu = (this.pokeMenu === uid) ? null : uid;
       this.render();

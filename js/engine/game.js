@@ -31,6 +31,7 @@ export class PokemonInPlay {
     this.status = new Set();    // 'asleep','paralyzed','confused','poisoned','burned'
     this.placedTurn = -1;       // 場に出た（進化含む）ターン
     this.evolvedTurn = -1;      // 直近で進化したターン
+    this.abilityUsedTurn = -1;  // 起動特性を使ったターン（1ターン1回制限）
   }
   get card() { return getCard(this.cardId); }
   get maxHp() { return this.card.hp; }
@@ -61,6 +62,9 @@ function makePlayer(name, deckIds, isAI) {
 export const BENCH_MAX = 5;
 export const PRIZE_COUNT = 6;
 
+// 手動で起動できる特性（名前ベース）。誘発/継続はここに含めない。
+export const ACTIVATED_ABILITIES = { 'にげあしドロー': 1, 'さかてにとる': 1 };
+
 export class Game {
   constructor(deck1, deck2, { rng } = {}) {
     this.rng = rng || Math.random;
@@ -78,6 +82,7 @@ export class Game {
     this.winReason = '';
     this.awaitingStartDraw = false; // 昇格待ちでターン開始ドローを保留中か
     this.stadium = null;            // 場のスタジアム { id, owner } | null
+    this._koLastTurnSnapshot = [false, false]; // 直前のターンにきぜつしたか
     this.onChange = () => {};
     this.onLog = () => {};
     this.pendingCoin = null;     // {label, resolve} UI用
@@ -91,6 +96,7 @@ export class Game {
     this.hasAttacked = false;
     this.retreatedThisTurn = false;
     this.stadiumPlayed = false;
+    this._koThisTurn = [false, false]; // このターン中にきぜつしたか（さかてにとる用）
   }
 
   emit(msg) {
@@ -260,6 +266,7 @@ export class Game {
     target.status.delete('poisoned');
     target.status.delete('burned');
     this.emit(`${p.name} は ${c.name} に進化させた。`);
+    this._triggerOnEvolve(target);
     return { ok: true };
   }
 
@@ -441,6 +448,7 @@ export class Game {
     target.stack.push(stage2Id); target.cardId = stage2Id; target.evolvedTurn = this.turnCount;
     target.status.clear();
     this.emit(`${p.name} は ふしぎなアメ で ${target.card.name} に進化させた。`);
+    this._triggerOnEvolve(target);
     return { ok: true };
   }
 
@@ -472,11 +480,67 @@ export class Game {
   // ownerIndex: ダメージを受ける側 / sourceIndex: 効果の主
   placeBenchDamage(ownerIndex, inst, dmg, sourceIndex) {
     if (!inst || dmg <= 0) return;
-    if (sourceIndex !== ownerIndex && this._benchProtectedFromOpponent()) {
-      this.emit(`バトルコロシアムにより ${inst.card.name} にダメカンはのらない。`);
-      return;
+    if (sourceIndex !== ownerIndex) {
+      if (this._benchProtectedFromOpponent()) { this.emit(`バトルコロシアムにより ${inst.card.name} にダメカンはのらない。`); return; }
+      if (this._hasInPlayAbility(ownerIndex, 'はなのカーテン')) { this.emit(`特性「はなのカーテン」により ${inst.card.name} はダメージを受けない。`); return; }
     }
     inst.damage += dmg;
+  }
+  _hasInPlayAbility(playerIndex, abilityName) {
+    return this.allInPlay(this.players[playerIndex]).some(x => x.card.ability && x.card.ability.name === abilityName);
+  }
+
+  // ============================================================
+  //  特性（とくせい）
+  // ============================================================
+  // 進化したときに誘発する特性
+  _triggerOnEvolve(inst) {
+    const ab = inst.card.ability; if (!ab) return;
+    if (ab.name === 'サイコドロー') {
+      const m = (ab.text || '').match(/(\d+)\s*枚/);
+      const n = m ? parseInt(m[1], 10) : 2;
+      const drawn = this._draw(this.turnPlayer, n);
+      this.emit(`特性「サイコドロー」：${inst.card.name} で${drawn}枚引いた。`);
+    }
+  }
+  // 手動起動できる特性か
+  isActivatedAbility(card) {
+    return !!(card && card.ability && ACTIVATED_ABILITIES[card.ability.name]);
+  }
+  canUseAbility(inst) {
+    if (!inst || !this.isActivatedAbility(inst.card)) return { ok: false, error: '起動できる特性がありません' };
+    if (inst.abilityUsedTurn === this.turnCount) return { ok: false, error: 'この特性はこのターンもう使いました' };
+    if (inst.card.ability.name === 'さかてにとる' && !this._koLastTurnSnapshot[this.turnPlayer])
+      return { ok: false, error: '前の相手の番に自分のポケモンがきぜつしていません' };
+    return { ok: true };
+  }
+  useAbility(uid) {
+    const err = this._checkMain(); if (err) return { ok: false, error: err };
+    const p = this.cur(); const inst = this._findInPlay(p, uid);
+    if (!inst) return { ok: false, error: '対象がいません' };
+    const chk = this.canUseAbility(inst); if (!chk.ok) return chk;
+    const ab = inst.card.ability;
+    switch (ab.name) {
+      case 'にげあしドロー': {
+        const drawn = this._draw(this.turnPlayer, 3);
+        // 自身と、ついているすべてのカードを山札にもどして切る
+        p.deck.push(...inst.stack, ...inst.energy, ...inst.tools);
+        if (p.active && p.active.uid === uid) p.active = null;
+        else p.bench = p.bench.filter(b => b.uid !== uid);
+        this._shuffleDeck(this.turnPlayer);
+        this.emit(`特性「にげあしドロー」：${drawn}枚引き、${inst.card.name} を山札にもどした。`);
+        this._checkWinConditions();
+        return { ok: true };
+      }
+      case 'さかてにとる': {
+        const drawn = this._draw(this.turnPlayer, 3);
+        inst.abilityUsedTurn = this.turnCount;
+        this.emit(`特性「さかてにとる」：${drawn}枚引いた。`);
+        return { ok: true };
+      }
+      default:
+        return { ok: false, error: 'この特性は手動で使えません' };
+    }
   }
 
   // 手動の入れ替え（トレーナー「いれかえ」用）
@@ -588,6 +652,7 @@ export class Game {
     const attackerIndex = 1 - ownerIndex;
     // スタック＋エネルギー＋道具をトラッシュ
     owner.discard.push(...inst.stack, ...inst.energy, ...inst.tools);
+    this._koThisTurn[ownerIndex] = true;
     this.emit(`${owner.name} の ${inst.card.name} はきぜつした！`);
     // 相手がサイドを取る
     const taker = this.players[attackerIndex];
@@ -681,6 +746,9 @@ export class Game {
     }
     this._afterDamageChecks();
     if (this.winner != null) return;
+
+    // 終わるターン中のきぜつ状況を記録（さかてにとる等の条件判定用）
+    this._koLastTurnSnapshot = this._koThisTurn.slice();
 
     // 相手番へ
     this.turnPlayer = 1 - this.turnPlayer;
