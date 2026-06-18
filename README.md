@@ -67,8 +67,12 @@ npx serve .
 ### デッキコードから丸ごと取り込み
 pokemon-card.com のデッキコード（`deck/confirm.html/deckID/<コード>`）から、デッキ内の全カード（データ・画像・枚数）を取り込めます:
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools\import-deck.ps1 -DeckCode ppRySR-eJ2k2F-p3ypXS
+# 自分用デッキのみ
+powershell -ExecutionPolicy Bypass -File tools\import-deck.ps1 -DeckCode <自分のコード>
+# 自分用＋あいて(AI)用を別々に指定
+powershell -ExecutionPolicy Bypass -File tools\import-deck.ps1 -DeckCode <自分のコード> -DeckCode2 <あいてのコード>
 ```
+メニューで**あなたのデッキ／あいてのデッキを別々に選択**できます（組込の炎/水雷デッキとも自由に組み合わせ可）。
 `cards.local.js`（全カード）と `decks.local.js`（番号と枚数のデッキ定義）が生成され、メニューに「取り込みデッキ」が追加されます。ポケモンは戦闘データ（進化チェーン含む）を完全取得。
 
 主要トレーナーズは効果を実装済み：**ボスの指令・ふしぎなアメ・なかよしポフィン・ポケパッド・夜のタンカ・せいなるはい・スイレンのお世話・トウコ・ヒカリ・ビワ・ワンダーパッチ・改造ハンマー**（山札/トラッシュ操作はカード選択モーダル、相手への効果は対象クリックで指定）。

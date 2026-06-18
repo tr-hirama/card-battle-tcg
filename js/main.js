@@ -558,11 +558,16 @@ class Controller {
   }
 }
 
-// デッキ選択肢を再構築
-function populateDeckSelect(decks) {
-  const sel = document.getElementById('deck-select');
-  sel.innerHTML = Object.entries(decks)
-    .map(([k, d]) => `<option value="${k}">${d.name}</option>`).join('');
+// デッキ選択肢を再構築（自分用・あいて用とも）。defaults={human, ai}
+function populateDeckSelect(decks, defaults = {}) {
+  const opts = Object.entries(decks).map(([k, d]) => `<option value="${k}">${d.name}</option>`).join('');
+  const setSel = (id, def) => {
+    const sel = document.getElementById(id); if (!sel) return;
+    sel.innerHTML = opts;
+    if (def && decks[def]) sel.value = def;
+  };
+  setSel('deck-select', defaults.human);
+  setSel('ai-deck-select', defaults.ai);
 }
 
 // 起動
@@ -586,14 +591,17 @@ window.addEventListener('DOMContentLoaded', () => {
       const badge = document.getElementById('unlock-badge');
       if (badge) badge.style.display = 'inline';
     }
-    populateDeckSelect(ctrl.decks);
+    // 既定: 自分=取り込み(あれば)、あいて=相手デッキ(あれば)→無ければ取り込みミラー→無ければ別の組込デッキ
+    const dk = ctrl.decks;
+    const humanDef = dk.imported ? 'imported' : (dk.mydeck ? 'mydeck' : 'fire');
+    const aiDef = dk.imported2 ? 'imported2' : (dk.imported ? 'imported' : 'water');
+    populateDeckSelect(dk, { human: humanDef, ai: aiDef });
   })();
 
   document.getElementById('start-btn').addEventListener('click', () => {
     const keys = Object.keys(ctrl.decks);
     const human = document.getElementById('deck-select').value || keys[0];
-    // 取り込み/マイデッキ選択時はAIも同じ実デッキでミラー戦（AIも実カード効果を使う）
-    const ai = (human === 'imported' || human === 'mydeck') ? human : ((keys.find(k => k !== human)) || human);
+    const ai = document.getElementById('ai-deck-select').value || (keys.find(k => k !== human)) || human;
     document.getElementById('menu').style.display = 'none';
     document.getElementById('game').style.display = 'flex';
     ctrl.startGame(human, ai);
